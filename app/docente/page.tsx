@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { Usuario, Documento, EntregaProgramada, CargaHoraria, Asignatura, Curso } from '@/types/database'
+import { Usuario, Documento, EntregaProgramada, CargaHoraria, Asignatura, Curso, TipoDocumento } from '@/types/database'
 import toast from 'react-hot-toast'
 
 interface CargaHorariaCompleta {
@@ -33,15 +33,27 @@ export default function DocenteDashboard() {
   const [cargaHoraria, setCargaHoraria] = useState<CargaHorariaCompleta[]>([])
   const [entregasPendientes, setEntregasPendientes] = useState<EntregaPendiente[]>([])
   const [documentosRecientes, setDocumentosRecientes] = useState<Documento[]>([])
-  const [stats, setStats] = useState({
-    totalDocumentos: 0,
-    pendientes: 0,
-    observados: 0,
-    aprobados: 0,
-    totalHoras: 0,
-    asignaturas: 0,
-    cursos: 0
+const [stats, setStats] = useState({
+  totalDocumentos: 0,
+  pendientes: 0,
+  observados: 0,
+  aprobados: 0,
+  totalHoras: 0,
+  asignaturas: 0,
+  cursos: 0
+})
+
+  const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([])
+  const [asignaturas, setAsignaturas] = useState<Asignatura[]>([])
+  const [entregas, setEntregas] = useState<EntregaProgramada[]>([])
+  const [formData, setFormData] = useState({
+    tipo_documento_id: '',
+    entrega_id: '',
+    asignatura_id: '',
+    observaciones: ''
   })
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -138,7 +150,7 @@ export default function DocenteDashboard() {
 
       setCargaHoraria(cargaCompleta.filter(c => c.curso_asignatura.curso && c.curso_asignatura.asignatura))
 
-      // Cargar entregas pendientes
+      // Cargar entregas del período
       const { data: entregasData } = await supabase
         .from('entregas_programadas')
         .select(`
@@ -152,6 +164,8 @@ export default function DocenteDashboard() {
         .eq('activo', true)
         .eq('es_obligatorio', true)
         .gte('fecha_limite', new Date().toISOString().split('T')[0])
+
+      setEntregas(entregasData || [])
 
       // Verificar cuáles ya fueron entregadas
       const entregasPendientes = await Promise.all(
@@ -179,6 +193,20 @@ export default function DocenteDashboard() {
       )
 
       setEntregasPendientes(entregasPendientes.filter(Boolean) as EntregaPendiente[])
+
+      const { data: tiposData } = await supabase
+        .from('tipos_documento')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+      setTiposDocumento(tiposData || [])
+
+      const { data: asignData } = await supabase
+        .from('asignaturas')
+        .select('*')
+        .eq('activo', true)
+        .order('nombre', { ascending: true })
+      setAsignaturas(asignData || [])
 
       // Cargar documentos recientes
       const { data: documentosData } = await supabase
@@ -241,6 +269,38 @@ export default function DocenteDashboard() {
         return 'bg-blue-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0] || null
+    setFile(selected)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!file) {
+      toast.error('Seleccione un archivo')
+      return
+    }
+
+    setUploading(true)
+    try {
+      // Lógica de subida pendiente de implementación
+      toast.success('Documento enviado')
+      setFormData({
+        tipo_documento_id: '',
+        entrega_id: '',
+        asignatura_id: '',
+        observaciones: ''
+      })
+      setFile(null)
+    } catch (error) {
+      console.error('Error subiendo documento:', error)
+      toast.error('Error al subir documento')
+    } finally {
+      setUploading(false)
     }
   }
 
