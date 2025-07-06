@@ -158,7 +158,7 @@ export default function CargaHorariaPage() {
         .from('cursos')
         .select('*')
         .eq('activo', true)
-        .eq('periodo_id', periodoData.id)
+        // Mostrar todos los cursos disponibles
         .order('subnivel', { ascending: true })
         .order('curso', { ascending: true })
         .order('paralelo', { ascending: true })
