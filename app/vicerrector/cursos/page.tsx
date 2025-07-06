@@ -85,7 +85,9 @@ export default function CursosPage() {
       const { data: cursosData, error: cursosError } = await supabase
         .from('cursos')
         .select('*')
-        .order('subnivel, curso, paralelo')
+        .order('subnivel', { ascending: true })
+        .order('curso', { ascending: true })
+        .order('paralelo', { ascending: true })
 
       if (cursosError) throw cursosError
       setCursos(cursosData || [])
