@@ -158,7 +158,7 @@ export default function CargaHorariaPage() {
         .from('cursos')
         .select('*')
         .eq('activo', true)
-        .eq('periodo_id', periodoData.id)
+        // Mostrar todos los cursos disponibles
         .order('subnivel', { ascending: true })
         .order('curso', { ascending: true })
         .order('paralelo', { ascending: true })
@@ -483,6 +483,37 @@ export default function CargaHorariaPage() {
             <p className="text-gray-500">No se encontraron docentes</p>
           </div>
         )}
+
+        {/* Relaciones Curso-Asignatura */}
+        <div className="mt-12">
+          <h2 className="text-lg font-semibold mb-4">Relaciones Curso-Asignatura</h2>
+          {cursoAsignaturas.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Curso</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Asignatura</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Horas/Sem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {cursoAsignaturas.map((relacion) => (
+                    <tr key={relacion.id}>
+                      <td className="px-4 py-2">
+                        {relacion.cursos?.curso} {relacion.cursos?.paralelo}
+                      </td>
+                      <td className="px-4 py-2">{relacion.asignaturas?.nombre}</td>
+                      <td className="px-4 py-2 text-center">{relacion.horas_semanales}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 text-center">No hay relaciones configuradas</p>
+          )}
+        </div>
       </main>
 
       {/* Modal Asignar Carga */}
@@ -658,6 +689,7 @@ export default function CargaHorariaPage() {
                 </button>
               </div>
             </form>
+
           </div>
         </div>
       )}
