@@ -159,7 +159,9 @@ export default function CargaHorariaPage() {
         .select('*')
         .eq('activo', true)
         .eq('periodo_id', periodoData.id)
-        .order('subnivel, curso, paralelo')
+        .order('subnivel', { ascending: true })
+        .order('curso', { ascending: true })
+        .order('paralelo', { ascending: true })
 
       setCursos(cursosData || [])
 
