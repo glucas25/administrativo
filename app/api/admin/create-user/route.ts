@@ -71,9 +71,15 @@ export async function POST(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .or(orConditions.join(','))
 
-    const { data: authUser } = await supabaseAdmin.auth.admin.getUserByEmail(
-      email
-    )
+    // Buscar usuario por email en Auth (listUsers solo acepta paginación, así que hay que filtrar manualmente)
+    const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    if (listError) {
+      return NextResponse.json(
+        { success: false, error: listError.message },
+        { status: 500 }
+      )
+    }
+    const authUser = usersList?.users?.find(u => u.email === email)
 
     if ((dbCount && dbCount > 0) || authUser) {
       return NextResponse.json(
@@ -85,14 +91,14 @@ export async function POST(request: NextRequest) {
     // Crear usuario en auth.users
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
-      email_confirm: true
+      password
     })
 
     if (createError) {
-      console.error('Error creating auth user:', createError)
+      // Imprime el error completo, no solo el mensaje
+      console.error('Error creating auth user:', createError, JSON.stringify(createError));
       return NextResponse.json(
-        { success: false, error: createError.message },
+        { success: false, error: createError.message || JSON.stringify(createError) },
         { status: 400 }
       )
     }
@@ -150,9 +156,11 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    // Esto imprimirá el error real en la consola del servidor
     console.error('Unexpected error:', error)
+    // Esto enviará el mensaje real al frontend (solo hazlo en desarrollo)
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
+      { success: false, error: error?.message || JSON.stringify(error) || 'Error interno del servidor' },
       { status: 500 }
     )
   }

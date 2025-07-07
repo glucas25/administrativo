@@ -4,48 +4,59 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { iniciarSesion } from '@/lib/auth/cliente'
+import CompletarPerfil from '@/components/forms/CompletarPerfil'
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [needsProfile, setNeedsProfile] = useState(false)
+  const [authUser, setAuthUser] = useState<any>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-
+    setNeedsProfile(false)
+    setAuthUser(null)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      // Obtener información del usuario
-      const { data: userData } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', data.user.id)
-        .single()
-
-      if (!userData) throw new Error('Usuario no encontrado')
-
-      toast.success('¡Bienvenido!')
-      
-      // Redirigir según el rol
-      if (userData.rol === 'vicerrector') {
-        router.push('/vicerrector')
+      const result = await iniciarSesion(email, password)
+      if (result.success) {
+        toast.success('¡Bienvenido!')
+        // Redirige según el rol
+        if (result.user.rol === 'vicerrector') {
+          router.push('/vicerrector')
+        } else if (result.user.rol === 'docente') {
+          router.push('/docente')
+        } else if (result.user.rol === 'admin') {
+          router.push('/admin')
+        } else {
+          router.push('/')
+        }
+      } else if (result.needsProfile) {
+        setNeedsProfile(true)
+        setAuthUser(result.auth_user)
       } else {
-        router.push('/docente')
+        toast.error(
+          typeof result.error === 'string'
+            ? result.error
+            : result.error?.message || JSON.stringify(result.error) || 'Error al iniciar sesión'
+        )
       }
     } catch (error: any) {
-      console.error('Detalles del error de inicio de sesión:', error);
-      toast.error(error.message || 'Error al iniciar sesión')
+      toast.error(
+        typeof error === 'string'
+          ? error
+          : error?.message || JSON.stringify(error) || 'Error al iniciar sesión'
+      )
     } finally {
       setLoading(false)
     }
+  }
+
+  if (needsProfile && authUser) {
+    return <CompletarPerfil authUser={authUser} onComplete={() => router.push('/')} />
   }
 
   return (

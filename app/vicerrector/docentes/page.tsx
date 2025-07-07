@@ -98,44 +98,32 @@ export default function DocentesPage() {
         }
         toast.success('Docente actualizado correctamente')
       } else {
-        // Crear nuevo docente
+        // Crear nuevo docente usando Supabase Auth signUp
         console.log('Creating new docente with data:', {
           email: formData.correo,
           apellidos: formData.apellidos,
           nombres: formData.nombres
         })
 
-        // Obtener el token de sesión actual
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session) {
-          throw new Error('No hay sesión activa')
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.correo,
+          password: formData.password,
+          options: {
+            data: {
+              nombres: formData.nombres,
+              apellidos: formData.apellidos,
+              cedula: formData.cedula || null,
+              area: formData.area || null,
+              titulo: formData.titulo || null,
+              rol: 'docente'
+            }
+          }
+        })
+
+        if (error) {
+          throw new Error(error.message || 'Error al crear docente')
         }
 
-        const response = await fetch('/api/admin/create-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            email: formData.correo,
-            password: formData.password,
-            cedula: formData.cedula || null,
-            apellidos: formData.apellidos,
-            nombres: formData.nombres,
-            area: formData.area || null,
-            titulo: formData.titulo || null
-          })
-        })
-        
-        const result = await response.json()
-        console.log('API Response:', result)
-        
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Error al crear docente')
-        }
-        
         toast.success('Docente creado exitosamente')
       }
       
