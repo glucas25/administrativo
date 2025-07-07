@@ -84,11 +84,11 @@ export default function DocentesPage() {
           .from('usuarios')
           .update({
             correo: formData.correo,
-            cedula: formData.cedula,
+            cedula: formData.cedula || null,
             apellidos: formData.apellidos,
             nombres: formData.nombres,
-            area: formData.area,
-            titulo: formData.titulo
+            area: formData.area || null,
+            titulo: formData.titulo || null
           })
           .eq('id', editingDocente.id)
           
@@ -121,11 +121,11 @@ export default function DocentesPage() {
           body: JSON.stringify({
             email: formData.correo,
             password: formData.password,
-            cedula: formData.cedula,
+            cedula: formData.cedula || null,
             apellidos: formData.apellidos,
             nombres: formData.nombres,
-            area: formData.area,
-            titulo: formData.titulo
+            area: formData.area || null,
+            titulo: formData.titulo || null
           })
         })
         
