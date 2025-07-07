@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
@@ -14,6 +14,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [needsProfile, setNeedsProfile] = useState(false)
   const [authUser, setAuthUser] = useState<any>(null)
+
+  useEffect(() => {
+    if (
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL.includes('<') ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes('<')
+    ) {
+      toast.error('Variables de entorno de Supabase no configuradas')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
