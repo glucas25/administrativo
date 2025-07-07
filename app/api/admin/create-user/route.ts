@@ -59,6 +59,24 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new user:', email)
 
+    // Verificar que el correo o la cédula no estén registrados
+    const orConditions = [`correo.eq.${email}`]
+    if (cedula) {
+      orConditions.push(`cedula.eq.${cedula}`)
+    }
+
+    const { count: userExists } = await supabaseAdmin
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true })
+      .or(orConditions.join(','))
+
+    if (userExists && userExists > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Correo o cédula ya registrados' },
+        { status: 409 }
+      )
+    }
+
     // Crear usuario en auth.users
     const { data: authData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -82,9 +100,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear registro en tabla usuarios
-    const nombre_completo = `${apellidos} ${nombres}`.trim()
 
-    const { error: dbError } = await supabaseAdmin
+    const { data: dbUser, error: dbError } = await supabaseAdmin
       .from('usuarios')
       .insert({
         id: authData.user.id,
@@ -97,6 +114,8 @@ export async function POST(request: NextRequest) {
         rol: 'docente',
         activo: true
       })
+      .select('id')
+      .single()
 
     if (dbError) {
       console.error('Error creating user record:', dbError)
@@ -119,9 +138,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        id: authData.user.id,
+        id: dbUser?.id || authData.user.id,
         email: authData.user.email,
-        nombre_completo
+        nombre_completo: `${apellidos} ${nombres}`.trim()
       }
     })
 
