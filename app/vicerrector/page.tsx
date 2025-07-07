@@ -231,7 +231,7 @@ export default function VicerrectorDashboard() {
                 → Programar Entregas
               </button>
               <button
-                onClick={() => router.push('/vicerrector/revisar')}
+                onClick={() => router.push('/vicerrector/documentos')}
                 className="w-full text-left px-4 py-2 bg-orange-50 rounded hover:bg-orange-100 transition-colors"
               >
                 → Revisar Documentos ({stats.documentosPorRevisar})
