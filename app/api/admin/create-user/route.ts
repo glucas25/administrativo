@@ -83,13 +83,12 @@ export async function POST(request: NextRequest) {
 
     // Crear registro en tabla usuarios
     const nombre_completo = `${apellidos} ${nombres}`.trim()
-    
+
     const { error: dbError } = await supabaseAdmin
       .from('usuarios')
       .insert({
         id: authData.user.id,
         correo: email,
-        nombre_completo,
         apellidos,
         nombres,
         cedula: cedula || null,
