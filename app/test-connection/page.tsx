@@ -42,12 +42,17 @@ export default function TestConnection() {
           users: []
         })
       } else {
+        const processed = (data || []).map((u: any) => ({
+          ...u,
+          nombre_completo: `${u.apellidos ?? ''} ${u.nombres ?? ''}`.trim(),
+        }))
+
         setStatus({
           loading: false,
           connected: true,
           error: null,
-          users: data || [],
-          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL
+          users: processed,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
         })
       }
 

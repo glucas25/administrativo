@@ -47,7 +47,10 @@ export default function VicerrectorDashboard() {
       }
 
       if (userData) {
-        setUser(userData)
+        setUser({
+          ...userData,
+          nombre_completo: `${userData.apellidos ?? ''} ${userData.nombres ?? ''}`.trim()
+        })
       }
     } catch (error) {
       console.error('Error:', error)

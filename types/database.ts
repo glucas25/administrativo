@@ -4,7 +4,7 @@ export type UserRole = 'docente' | 'vicerrector' | 'admin'
 
 export interface Usuario {
   id: string
-  nombre_completo: string
+  nombre_completo?: string
   correo: string
   rol: UserRole
   activo: boolean

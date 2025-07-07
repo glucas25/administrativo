@@ -41,7 +41,10 @@ export default function VicerrectorLayout({
         return
       }
 
-      setUser(userData)
+      setUser({
+        ...userData,
+        nombre_completo: `${userData.apellidos ?? ''} ${userData.nombres ?? ''}`.trim(),
+      })
     } catch (error) {
       console.error('Error:', error)
       router.push('/auth/login')
