@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     // Crear registro en tabla usuarios
 
-    const { error: dbError } = await supabaseAdmin
+    const { data: dbUser, error: dbError } = await supabaseAdmin
       .from('usuarios')
       .insert({
         id: authData.user.id,
@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
         rol: 'docente',
         activo: true
       })
+      .select('id')
+      .single()
 
     if (dbError) {
       console.error('Error creating user record:', dbError)
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        id: authData.user.id,
+        id: dbUser?.id || authData.user.id,
         email: authData.user.email,
         nombre_completo: `${apellidos} ${nombres}`.trim()
       }
