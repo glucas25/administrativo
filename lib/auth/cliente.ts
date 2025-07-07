@@ -1,8 +1,20 @@
 import { supabase } from '@/lib/supabase/client'
 
+function supabaseConfigValida() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  return url.trim() !== '' && anon.trim() !== '' && !url.includes('<') && !anon.includes('<')
+}
+
 // Iniciar sesión usando Edge Function
 export async function iniciarSesion(correo: string, password: string) {
   try {
+    if (!supabaseConfigValida()) {
+      return {
+        success: false,
+        error: 'Supabase no está configurado correctamente'
+      }
+    }
     const { data, error } = await supabase.functions.invoke('login-completo', {
       body: JSON.stringify({ correo, password }),
       method: 'POST',
