@@ -59,18 +59,23 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating new user:', email)
 
-    // Verificar que el correo o la cédula no estén registrados
+    // Verificar que el correo o la cédula no estén registrados en la base
+    // de datos y en auth.users
     const orConditions = [`correo.eq.${email}`]
     if (cedula) {
       orConditions.push(`cedula.eq.${cedula}`)
     }
 
-    const { count: userExists } = await supabaseAdmin
+    const { count: dbCount } = await supabaseAdmin
       .from('usuarios')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .or(orConditions.join(','))
 
-    if (userExists && userExists > 0) {
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserByEmail(
+      email
+    )
+
+    if ((dbCount && dbCount > 0) || authUser) {
       return NextResponse.json(
         { success: false, error: 'Correo o cédula ya registrados' },
         { status: 409 }
