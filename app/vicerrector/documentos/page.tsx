@@ -38,9 +38,20 @@ export default function RevisarDocumentosPage() {
     try {
       const { data } = await supabase
         .from('documentos')
-        .select(`*, docentes:usuarios (nombre_completo), tipos_documento (nombre)`)
+        .select(`*, docentes:usuarios (apellidos, nombres), tipos_documento (nombre)`)
         .order('fecha_subida', { ascending: false })
-      setDocumentos(data || [])
+
+      const processed = (data || []).map((doc: any) => ({
+        ...doc,
+        docentes: doc.docentes
+          ? {
+              ...doc.docentes,
+              nombre_completo: `${doc.docentes.apellidos ?? ''} ${doc.docentes.nombres ?? ''}`.trim(),
+            }
+          : null,
+      }))
+
+      setDocumentos(processed)
     } catch (error) {
       console.error('Error loading documentos:', error)
       toast.error('Error al cargar documentos')

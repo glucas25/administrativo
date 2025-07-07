@@ -83,13 +83,12 @@ export async function POST(request: NextRequest) {
 
     // Crear registro en tabla usuarios
     const nombre_completo = `${apellidos} ${nombres}`.trim()
-    
+
     const { error: dbError } = await supabaseAdmin
       .from('usuarios')
       .insert({
         id: authData.user.id,
         correo: email,
-        nombre_completo,
         apellidos,
         nombres,
         cedula: cedula || null,
@@ -103,9 +102,14 @@ export async function POST(request: NextRequest) {
       console.error('Error creating user record:', dbError)
       // Eliminar usuario de auth si falla
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      
+
+      const friendly =
+        dbError.code === '23505'
+          ? 'Correo o c\u00e9dula ya registrados'
+          : dbError.message
+
       return NextResponse.json(
-        { success: false, error: dbError.message },
+        { success: false, error: friendly },
         { status: 500 }
       )
     }

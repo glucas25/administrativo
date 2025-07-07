@@ -58,7 +58,13 @@ export default function DocentesPage() {
         .order('apellidos')
 
       if (error) throw error
-      setDocentes(data || [])
+
+      const processed = (data || []).map((d) => ({
+        ...d,
+        nombre_completo: `${d.apellidos ?? ''} ${d.nombres ?? ''}`.trim()
+      }))
+
+      setDocentes(processed)
     } catch (error) {
       console.error('Error:', error)
       toast.error('Error al cargar docentes')
@@ -74,18 +80,15 @@ export default function DocentesPage() {
     try {
       if (editingDocente) {
         // Actualizar docente existente
-        const nombre_completo = `${formData.apellidos} ${formData.nombres}`.trim()
-        
         const { error } = await supabase
           .from('usuarios')
           .update({
             correo: formData.correo,
-            cedula: formData.cedula,
+            cedula: formData.cedula || null,
             apellidos: formData.apellidos,
             nombres: formData.nombres,
-            nombre_completo,
-            area: formData.area,
-            titulo: formData.titulo
+            area: formData.area || null,
+            titulo: formData.titulo || null
           })
           .eq('id', editingDocente.id)
           
@@ -118,11 +121,11 @@ export default function DocentesPage() {
           body: JSON.stringify({
             email: formData.correo,
             password: formData.password,
-            cedula: formData.cedula,
+            cedula: formData.cedula || null,
             apellidos: formData.apellidos,
             nombres: formData.nombres,
-            area: formData.area,
-            titulo: formData.titulo
+            area: formData.area || null,
+            titulo: formData.titulo || null
           })
         })
         

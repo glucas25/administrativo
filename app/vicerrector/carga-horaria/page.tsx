@@ -134,8 +134,11 @@ export default function CargaHorariaPage() {
 
           const total_horas = cargas.reduce((sum, c) => sum + c.horas_semanales, 0)
 
+          const nombre_completo = `${docente.apellidos ?? ''} ${docente.nombres ?? ''}`.trim()
+
           return {
             ...docente,
+            nombre_completo,
             cargas: cargas.filter(c => c.curso_asignatura.id),
             total_horas
           }
