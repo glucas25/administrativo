@@ -29,7 +29,15 @@ export async function iniciarSesion(correo: string, password: string) {
     return { success: true, session, user }
   } catch (error: any) {
     console.error('Error inesperado en iniciarSesion:', error)
-    return { success: false, error: error.message || error }
+    const fetchFail =
+      typeof error?.message === 'string' &&
+      error.message.includes('Failed to send a request to the Edge Function')
+    return {
+      success: false,
+      error: fetchFail
+        ? 'No se pudo contactar al servidor de autenticación'
+        : error.message || error
+    }
   }
 }
 
