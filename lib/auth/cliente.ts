@@ -1,55 +1,62 @@
 import { supabase } from '@/lib/supabase/client'
 
-function supabaseConfigValida() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  return url.trim() !== '' && anon.trim() !== '' && !url.includes('<') && !anon.includes('<')
+// Función de prueba para verificar comunicación con Edge Functions
+export async function testEdgeFunction() {
+  try {
+    console.log('Probando comunicación con Edge Function...')
+    // Generar un email único para cada prueba
+    const uniqueEmail = `test_${Date.now()}@test.com`
+    // Usar la función crear_usuario_completo SOLO para pruebas/registro
+    const { data, error } = await supabase.rpc('crear_usuario_completo', {
+      p_email: uniqueEmail,
+      p_password: '123456',
+      p_cedula: '1234567890',
+      p_apellidos: 'User',
+      p_nombres: 'Test',
+      p_rol: 'docente'
+    })
+    console.log('Respuesta de test:', { data, error })
+    return { success: !error, data, error }
+  } catch (error: any) {
+    console.error('Error en testEdgeFunction:', error)
+    return { success: false, error: error.message || error }
+  }
 }
 
-// Iniciar sesión usando Edge Function
+// Iniciar sesión usando Supabase Auth y funciones nuevas
 export async function iniciarSesion(correo: string, password: string) {
   try {
-    if (!supabaseConfigValida()) {
-      return {
-        success: false,
-        error: 'Supabase no está configurado correctamente'
-      }
-    }
-    const { data, error } = await supabase.functions.invoke('login-completo', {
-      body: JSON.stringify({ correo, password }),
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+    console.log('Iniciando sesión con:', { correo, password: '***' })
+    // Login directo con Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: correo,
+      password: password
     })
-    if (error) {
-      console.error('Error al invocar login-completo:', error)
-      return { success: false, error: error.message || error }
+    if (authError || !authData?.user) {
+      console.error('Error al iniciar sesión:', authError)
+      return { success: false, error: authError?.message || 'Credenciales incorrectas' }
     }
-    if (!data.success) {
-      if (data.needsProfile) {
-        return {
-          success: false,
-          needsProfile: true,
-          auth_user: data.auth_user,
-          error: data.error
-        }
+    // Actualizar último acceso
+    await supabase.rpc('actualizar_ultimo_acceso', { p_user_id: authData.user.id })
+    // Obtener perfil completo
+    let userData = null
+    try {
+      const { data: perfil, error: perfilError } = await supabase.rpc('obtener_perfil_usuario', { p_user_id: authData.user.id })
+      if (!perfilError && perfil && perfil.length > 0) {
+        userData = perfil[0]
+      } else {
+        userData = authData.user
       }
-      return { success: false, error: data.error }
+    } catch (e) {
+      userData = authData.user
     }
-    const { session, user } = data
-    localStorage.setItem('supabase_session', JSON.stringify(session))
-    localStorage.setItem('user_data', JSON.stringify(user))
-    return { success: true, session, user }
+    // Guardar sesión y datos de usuario
+    localStorage.setItem('supabase_session', JSON.stringify(authData.session))
+    localStorage.setItem('user_data', JSON.stringify(userData))
+    return { success: true, session: authData.session, user: userData }
   } catch (error: any) {
     console.error('Error inesperado en iniciarSesion:', error)
-    const fetchFail =
-      typeof error?.message === 'string' &&
-      error.message.includes('Failed to send a request to the Edge Function')
-    return {
-      success: false,
-      error: fetchFail
-        ? 'No se pudo contactar al servidor de autenticación'
-        : error.message || error
-    }
+    return { success: false, error: error?.message || String(error) }
   }
 }
 
@@ -116,33 +123,31 @@ export async function verificarSesion() {
     } catch (functionError) {
       console.error('Error al invocar Edge Function:', functionError)
       // Plan B: Intentar obtener la sesión directamente de Supabase Auth
-      const { data: { session: currentSession, user }, error: authError } = await supabase.auth.getSession()
+      const { data: { session: currentSession }, error: authError } = await supabase.auth.getSession()
       if (authError || !currentSession) {
         console.error('Error al obtener sesión de respaldo:', authError)
         return { success: false, error: authError || 'No se pudo obtener la sesión' }
       }
-      // Intentar obtener datos del usuario directamente
+      // Intentar obtener datos del usuario directamente usando la función obtener_datos_usuario_completos
+      const userId = currentSession.user.id
       const { data: userData, error: userError } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      if (userError || !userData) {
+        .rpc('obtener_datos_usuario_completos', { p_user_id: userId })
+      if (userError || !userData || userData.length === 0) {
         console.error('Error al obtener datos del usuario:', userError)
         return {
           success: false,
           needsProfile: true,
-          auth_user: user,
+          auth_user: currentSession.user,
           error: userError || 'No se encontraron datos del usuario'
         }
       }
       // Actualizar datos locales
       localStorage.setItem('supabase_session', JSON.stringify(currentSession))
-      localStorage.setItem('user_data', JSON.stringify(userData))
+      localStorage.setItem('user_data', JSON.stringify(userData[0]))
       return {
         success: true,
         session: currentSession,
-        user: userData
+        user: userData[0]
       }
     }
   } catch (error: any) {
@@ -161,7 +166,7 @@ export async function cerrarSesion() {
     return { success: true }
   } catch (error: any) {
     console.error('Error inesperado en cerrarSesion:', error)
-    return { success: false, error: error.message || error }
+    return { success: false, error: error?.message || String(error) }
   }
 }
 

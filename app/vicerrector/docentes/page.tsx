@@ -21,9 +21,7 @@ export default function DocentesPage() {
     password: '',
     cedula: '',
     apellidos: '',
-    nombres: '',
-    area: '',
-    titulo: ''
+    nombres: ''
   })
 
   useEffect(() => {
@@ -39,29 +37,27 @@ export default function DocentesPage() {
     }
 
     const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single()
+      .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
-    if (userData?.rol !== 'vicerrector') {
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'vicerrector') {
       router.push('/docente')
     }
   }
 
   async function loadDocentes() {
     try {
+      // Obtener docentes desde la vista usuarios_completos
       const { data, error } = await supabase
-        .from('usuarios')
+        .from('usuarios_completos')
         .select('*')
         .eq('rol', 'docente')
-        .order('apellidos')
 
       if (error) throw error
 
-      const processed = (data || []).map((d) => ({
+      const processed = (data || []).map((d: any) => ({
         ...d,
-        nombre_completo: `${d.apellidos ?? ''} ${d.nombres ?? ''}`.trim()
+        nombre_completo: d.nombre_completo || `${d.apellidos ?? ''} ${d.nombres ?? ''}`.trim()
       }))
 
       setDocentes(processed)
@@ -74,87 +70,127 @@ export default function DocentesPage() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSubmitting(true)
-    
+    e.preventDefault();
+    setSubmitting(true);
     try {
       if (editingDocente) {
-        // Actualizar docente existente
-        const { error } = await supabase
-          .from('usuarios')
+        // Buscar usuario por correo
+        const { data: existingUser, error: userError } = await supabase
+          .from('usuarios_completos')
+          .select('id, rol')
+          .eq('correo', formData.correo)
+          .maybeSingle();
+        if (userError) throw userError;
+
+        // Si existe otro usuario con ese correo y no es el que estamos editando
+        if (existingUser && existingUser.id !== editingDocente.id && existingUser.rol === 'docente') {
+          toast.error('Ya existe un docente con este correo');
+          setSubmitting(false);
+          return;
+        }
+
+        // Actualizar el perfil
+        const { error: perfilError } = await supabase
+          .from('perfiles_docentes')
           .update({
-            correo: formData.correo,
             cedula: formData.cedula || null,
             apellidos: formData.apellidos,
             nombres: formData.nombres,
-            area: formData.area || null,
-            titulo: formData.titulo || null
+            rol: 'docente',
+            activo: true
           })
-          .eq('id', editingDocente.id)
-          
-        if (error) {
-          console.error('Error updating docente:', error)
-          throw new Error(error.message || 'Error al actualizar docente')
-        }
-        toast.success('Docente actualizado correctamente')
-      } else {
-        // Crear nuevo docente usando Supabase Auth signUp
-        console.log('Creating new docente with data:', {
-          email: formData.correo,
-          apellidos: formData.apellidos,
-          nombres: formData.nombres
-        })
+          .eq('user_id', editingDocente.id);
 
-        const { data, error } = await supabase.auth.signUp({
+        if (perfilError) {
+          toast.error('Error al guardar cambios: ' + perfilError.message);
+          setSubmitting(false);
+          return;
+        }
+        toast.success('Docente actualizado correctamente');
+        resetForm();
+        loadDocentes();
+        setSubmitting(false);
+        return;
+      }
+      // 1. Buscar usuario por correo
+      const { data: existingUser, error: userError } = await supabase
+        .from('usuarios_completos')
+        .select('id, rol')
+        .eq('correo', formData.correo)
+        .maybeSingle();
+      if (userError) throw userError;
+
+      if (!existingUser) {
+        // 2. No existe: crear usuario con Supabase Auth
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.correo,
-          password: formData.password,
-          options: {
-            data: {
-              nombres: formData.nombres,
-              apellidos: formData.apellidos,
+          password: formData.password
+        });
+        if (signUpError) {
+          toast.error('Error al crear usuario: ' + signUpError.message);
+          setSubmitting(false);
+          return;
+        }
+        // 3. Completar perfil en perfiles_docentes
+        const userId = signUpData?.user?.id;
+        if (userId) {
+          const { error: perfilError } = await supabase
+            .from('perfiles_docentes')
+            .update({
               cedula: formData.cedula || null,
-              area: formData.area || null,
-              titulo: formData.titulo || null,
-              rol: 'docente'
-            }
+              apellidos: formData.apellidos,
+              nombres: formData.nombres,
+              rol: 'docente',
+              activo: true
+            })
+            .eq('user_id', userId);
+          if (perfilError) {
+            toast.error('Usuario creado, pero error al completar perfil: ' + perfilError.message);
+            setSubmitting(false);
+            return;
           }
-        })
-
-        if (error) {
-          throw new Error(error.message || 'Error al crear docente')
         }
-
-        toast.success('Docente creado exitosamente')
+        toast.success('Docente creado exitosamente');
+      } else if (existingUser.rol === 'docente') {
+        // 4. Ya es docente
+        toast.error('Ya existe un docente con este correo');
+        setSubmitting(false);
+        return;
+      } else {
+        // 5. Existe pero no es docente: actualizar perfil
+        const { error: perfilError } = await supabase
+          .from('perfiles_docentes')
+          .update({
+            cedula: formData.cedula || null,
+            apellidos: formData.apellidos,
+            nombres: formData.nombres,
+            rol: 'docente',
+            activo: true
+          })
+          .eq('user_id', existingUser.id);
+        if (perfilError) {
+          toast.error('Error al asignar rol docente: ' + perfilError.message);
+          setSubmitting(false);
+          return;
+        }
+        toast.success('Rol docente asignado exitosamente');
       }
-      
-      resetForm()
-      loadDocentes()
-    } catch (error: any) {
-      console.error('Error in handleSubmit:', error)
-      
-      // Mejor manejo del error
-      let errorMessage = 'Error al procesar la solicitud'
-      
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'string') {
-        errorMessage = error
-      } else if (error && typeof error === 'object') {
-        errorMessage = error.message || error.error || JSON.stringify(error)
-      }
-      
-      toast.error(errorMessage)
+      resetForm();
+      loadDocentes();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al guardar docente');
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
   async function toggleDocenteActivo(docente: Docente) {
     try {
       const { error } = await supabase
-        .from('usuarios')
+        .from('perfiles_docentes')
         .update({ activo: !docente.activo })
-        .eq('id', docente.id)
+        .eq('user_id', docente.id)
 
       if (error) throw error
       toast.success(docente.activo ? 'Docente desactivado' : 'Docente activado')
@@ -182,11 +218,11 @@ export default function DocentesPage() {
         return
       }
 
-      // Eliminar de usuarios
+      // Eliminar de perfiles_docentes
       const { error } = await supabase
-        .from('usuarios')
+        .from('perfiles_docentes')
         .delete()
-        .eq('id', docente.id)
+        .eq('user_id', docente.id)
 
       if (error) throw error
       
@@ -204,9 +240,7 @@ export default function DocentesPage() {
       password: '',
       cedula: '',
       apellidos: '',
-      nombres: '',
-      area: '',
-      titulo: ''
+      nombres: ''
     })
     setEditingDocente(null)
     setShowModal(false)
@@ -219,9 +253,7 @@ export default function DocentesPage() {
       password: '',
       cedula: docente.cedula || '',
       apellidos: docente.apellidos || '',
-      nombres: docente.nombres || '',
-      area: docente.area || '',
-      titulo: docente.titulo || ''
+      nombres: docente.nombres || ''
     })
     setShowModal(true)
   }
@@ -306,12 +338,6 @@ export default function DocentesPage() {
                       Cédula
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Área
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Título
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -333,12 +359,6 @@ export default function DocentesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {docente.cedula || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {docente.area || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {docente.titulo || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -460,43 +480,6 @@ export default function DocentesPage() {
                     value={formData.cedula} 
                     onChange={(e) => setFormData({...formData, cedula: e.target.value})} 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" 
-                    maxLength={10}
-                    disabled={submitting}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Área
-                  </label>
-                  <select
-                    value={formData.area} 
-                    onChange={(e) => setFormData({...formData, area: e.target.value})} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                    disabled={submitting}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Ciencias Exactas">Ciencias Exactas</option>
-                    <option value="Ciencias Naturales">Ciencias Naturales</option>
-                    <option value="Ciencias Sociales">Ciencias Sociales</option>
-                    <option value="Lengua y Literatura">Lengua y Literatura</option>
-                    <option value="Idiomas">Idiomas</option>
-                    <option value="Educación Física">Educación Física</option>
-                    <option value="Educación Artística">Educación Artística</option>
-                    <option value="Tecnología">Tecnología</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Título
-                  </label>
-                  <input 
-                    type="text" 
-                    value={formData.titulo} 
-                    onChange={(e) => setFormData({...formData, titulo: e.target.value})} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" 
-                    placeholder="Ej: Lic., Ing., Msc., etc."
                     disabled={submitting}
                   />
                 </div>

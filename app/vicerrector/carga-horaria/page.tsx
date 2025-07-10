@@ -36,9 +36,7 @@ export default function CargaHorariaPage() {
   
   // Form data para asignar carga
   const [asignFormData, setAsignFormData] = useState({
-    curso_id: '',
-    asignatura_id: '',
-    horas_semanales: ''
+    curso_asignatura_id: ''
   })
 
   // Form data para configurar curso-asignatura
@@ -48,103 +46,119 @@ export default function CargaHorariaPage() {
     horas_semanales: ''
   })
 
+  // Estado para edición de carga
+  const [editCarga, setEditCarga] = useState<{id: number, horas_semanales: string} | null>(null)
+
+  // Estado para periodo y filtros
+  const [periodos, setPeriodos] = useState<PeriodoAcademico[]>([])
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<PeriodoAcademico | null>(null)
+  const [filtroCurso, setFiltroCurso] = useState('')
+  const [filtroAsignatura, setFiltroAsignatura] = useState('')
+
   useEffect(() => {
     checkAuth()
-    loadData()
   }, [])
 
   const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/auth/login')
-      return
-    }
-
-    const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single()
-
-    if (userData?.rol !== 'vicerrector') {
-      router.push('/docente')
-    }
-  }
-
-  const loadData = async () => {
     try {
-      // Cargar período activo
-      const { data: periodoData } = await supabase
-        .from('periodos_academicos')
-        .select('*')
-        .eq('activo', true)
-        .single()
-
-      if (!periodoData) {
-        toast.error('No hay período académico activo. Configure uno primero.')
-        router.push('/vicerrector/periodos')
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/auth/login')
         return
       }
 
-      setPeriodoActivo(periodoData)
+      const { data: userData } = await supabase
+        .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
-      // Cargar docentes con su carga horaria
+      const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+      if (rol !== 'vicerrector') {
+        router.push('/docente')
+        return
+      }
+
+      // Solo cargar datos si es vicerrector
+      loadData()
+    } catch (error) {
+      console.error('Error en checkAuth:', error)
+      router.push('/auth/login')
+    }
+  }
+
+  const loadData = async (periodoId?: number) => {
+    try {
+      // Cargar todos los periodos
+      const { data: periodosData } = await supabase.from('periodos_academicos').select('*').order('nombre', { ascending: false })
+      setPeriodos(periodosData || [])
+
+      // Seleccionar periodo
+      let periodoActivoData = periodoSeleccionado
+      if (periodoId) {
+        periodoActivoData = (periodosData || []).find(p => p.id === periodoId) || null
+        setPeriodoSeleccionado(periodoActivoData)
+      } else if (!periodoSeleccionado && periodosData && periodosData.length > 0) {
+        periodoActivoData = periodosData.find(p => p.activo) || periodosData[0]
+        setPeriodoSeleccionado(periodoActivoData)
+      }
+      if (!periodoActivoData) return
+      setPeriodoActivo(periodoActivoData)
+
+      // Cargar docentes desde la vista usuarios_completos
       const { data: docentesData, error: docentesError } = await supabase
-        .from('usuarios')
-        .select(`
-          *,
-          carga_horaria!carga_horaria_docente_id_fkey (
-            id,
-            horas_semanales,
-            curso_asignatura_id
-          )
-        `)
+        .from('usuarios_completos')
+        .select('*')
         .eq('rol', 'docente')
-        .eq('activo', true)
 
       if (docentesError) throw docentesError
 
-      // Procesar docentes y calcular total de horas
-      const docentesWithCarga = await Promise.all(
-        (docentesData || []).map(async (docente) => {
-          const cargas = await Promise.all(
-            (docente.carga_horaria || []).map(async (carga: any) => {
-              const { data: cursoAsigData } = await supabase
-                .from('curso_asignaturas')
-                .select(`
-                  *,
-                  cursos!inner(*),
-                  asignaturas!inner(*)
-                `)
-                .eq('id', carga.curso_asignatura_id)
-                .single()
+      // Filtrar solo los activos en el frontend
+      const docentesActivos = (docentesData || []).filter((d: any) => d.activo)
 
-              return {
-                id: carga.id,
-                curso_asignatura: {
-                  id: cursoAsigData?.id,
-                  curso: cursoAsigData?.cursos,
-                  asignatura: cursoAsigData?.asignaturas,
-                  horas_semanales: cursoAsigData?.horas_semanales || 0
-                },
-                horas_semanales: carga.horas_semanales
-              }
-            })
-          )
+      // Procesar docentes y cargar su carga horaria
+      const docentesWithCarga = await Promise.all(
+        (docentesActivos || []).map(async (docente: any) => {
+          // Cargar la carga horaria del docente para el periodo actual
+          const { data: cargasData } = await supabase
+            .from('carga_horaria')
+            .select(`
+              id,
+              horas_semanales,
+              curso_asignatura_id,
+              curso_asignaturas!inner(
+                id,
+                horas_semanales,
+                cursos!inner(*),
+                asignaturas!inner(*)
+              )
+            `)
+            .eq('docente_id', docente.id)
+            .eq('periodo_id', periodoActivoData.id)
+            .eq('activo', true)
+
+          const cargas = (cargasData || []).map((carga: any) => ({
+            id: carga.id,
+            horas_semanales: carga.horas_semanales,
+            curso_asignatura: {
+              id: carga.curso_asignaturas.id,
+              curso: carga.curso_asignaturas.cursos,
+              asignatura: carga.curso_asignaturas.asignaturas,
+              horas_semanales: carga.curso_asignaturas.horas_semanales
+            }
+          }))
 
           const total_horas = cargas.reduce((sum, c) => sum + c.horas_semanales, 0)
 
-          const nombre_completo = `${docente.apellidos ?? ''} ${docente.nombres ?? ''}`.trim()
+          const nombre_completo = docente.nombre_completo || `${docente.apellidos ?? ''} ${docente.nombres ?? ''}`.trim();
 
           return {
             ...docente,
             nombre_completo,
-            cargas: cargas.filter(c => c.curso_asignatura.id),
+            cargas,
             total_horas
           }
         })
       )
 
+      console.log('Docentes cargados:', docentesWithCarga.length)
       setDocentes(docentesWithCarga)
 
       // Cargar asignaturas
@@ -194,41 +208,12 @@ export default function CargaHorariaPage() {
     if (!selectedDocente || !periodoActivo) return
 
     try {
-      // Verificar si existe la relación curso-asignatura
-      const { data: cursoAsigData } = await supabase
-        .from('curso_asignaturas')
-        .select('id')
-        .eq('curso_id', parseInt(asignFormData.curso_id))
-        .eq('asignatura_id', parseInt(asignFormData.asignatura_id))
-        .single()
-
-      let cursoAsignaturaId: number
-
-      if (cursoAsigData) {
-        cursoAsignaturaId = cursoAsigData.id
-      } else {
-        // Crear la relación si no existe
-        const { data: newCursoAsig, error: createError } = await supabase
-          .from('curso_asignaturas')
-          .insert({
-            curso_id: parseInt(asignFormData.curso_id),
-            asignatura_id: parseInt(asignFormData.asignatura_id),
-            horas_semanales: parseInt(asignFormData.horas_semanales),
-            activo: true
-          })
-          .select()
-          .single()
-
-        if (createError) throw createError
-        cursoAsignaturaId = newCursoAsig.id
-      }
-
       // Verificar si ya existe esta asignación
       const { data: existingCarga } = await supabase
         .from('carga_horaria')
         .select('id')
         .eq('docente_id', selectedDocente.id)
-        .eq('curso_asignatura_id', cursoAsignaturaId)
+        .eq('curso_asignatura_id', parseInt(asignFormData.curso_asignatura_id))
         .eq('periodo_id', periodoActivo.id)
         .single()
 
@@ -237,26 +222,33 @@ export default function CargaHorariaPage() {
         return
       }
 
-      // Crear la carga horaria
-      const { error } = await supabase
+      // Obtener las horas de la malla
+      const cursoAsig = cursoAsignaturas.find(ca => ca.id === parseInt(asignFormData.curso_asignatura_id))
+      const horasMalla = cursoAsig?.horas_semanales || 0
+
+      const { data, error } = await supabase
         .from('carga_horaria')
-        .insert({
+        .insert([{
           docente_id: selectedDocente.id,
-          curso_asignatura_id: cursoAsignaturaId,
+          curso_asignatura_id: parseInt(asignFormData.curso_asignatura_id),
           periodo_id: periodoActivo.id,
-          horas_semanales: parseInt(asignFormData.horas_semanales),
+          horas_semanales: horasMalla,
           activo: true
-        })
+        }])
+        .select();
 
-      if (error) throw error
+      if (error || !data || data.length === 0) {
+        toast.error(error?.message || 'No se pudo guardar la carga horaria');
+        return;
+      }
 
-      toast.success('Carga horaria asignada correctamente')
+      toast.success('Guardado exitosamente');
       setShowAsignModal(false)
       resetAsignForm()
       loadData()
-    } catch (error) {
-      console.error('Error:', error)
-      toast.error('Error al asignar carga horaria')
+    } catch (error: any) {
+      console.error('Error al asignar carga:', error?.message || error);
+      toast.error(error?.message || 'Error al asignar carga');
     }
   }
 
@@ -268,15 +260,15 @@ export default function CargaHorariaPage() {
     try {
       const { error } = await supabase
         .from('carga_horaria')
-        .delete()
+        .update({ activo: false })
         .eq('id', cargaId)
 
       if (error) throw error
-      toast.success('Asignación eliminada correctamente')
+      toast.success('Asignación desactivada correctamente')
       loadData()
     } catch (error) {
       console.error('Error:', error)
-      toast.error('Error al eliminar asignación')
+      toast.error('Error al desactivar asignación')
     }
   }
 
@@ -320,9 +312,7 @@ export default function CargaHorariaPage() {
 
   const resetAsignForm = () => {
     setAsignFormData({
-      curso_id: '',
-      asignatura_id: '',
-      horas_semanales: ''
+      curso_asignatura_id: ''
     })
   }
 
@@ -334,14 +324,50 @@ export default function CargaHorariaPage() {
     })
   }
 
+  // Función para guardar edición
+  const handleEditCarga = async () => {
+    if (!editCarga) return;
+    try {
+      const { error } = await supabase
+        .from('carga_horaria')
+        .update({ horas_semanales: parseInt(editCarga.horas_semanales) })
+        .eq('id', editCarga.id)
+      if (error) {
+        toast.error(error.message)
+      } else {
+        toast.success('Carga horaria actualizada')
+        setEditCarga(null)
+        loadData()
+      }
+    } catch (error) {
+      toast.error('Error al actualizar carga')
+    }
+  }
+
   const filteredDocentes = docentes.filter(docente =>
-    docente.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    docente.correo.toLowerCase().includes(searchTerm.toLowerCase())
+    (docente.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     docente.correo.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    // Si hay filtros de curso o asignatura, solo mostrar docentes que tengan cargas que coincidan
+    ((filtroCurso || filtroAsignatura) ? 
+      (docente.cargas && docente.cargas.some(carga =>
+        (!filtroCurso || (carga.curso_asignatura.curso?.curso + carga.curso_asignatura.curso?.paralelo) === filtroCurso) &&
+        (!filtroAsignatura || carga.curso_asignatura.asignatura?.nombre === filtroAsignatura)
+      )) : true)
+  )
+
+  // --- NUEVO: Filtrar relaciones con carga horaria asignada para la vista principal ---
+  const relacionesConCarga = cursoAsignaturas.filter(rel =>
+    docentes.some(doc =>
+      doc.cargas && doc.cargas.some(c => c.curso_asignatura.id === rel.id)
+    )
   )
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
   }
+
+  const cursoAsignaturasAsignadas = docentes.flatMap(doc => (doc.cargas || []).map((c: any) => c.curso_asignatura.id));
+  const cursoAsignaturasDisponibles: typeof cursoAsignaturas = cursoAsignaturas.filter((ca: any) => !cursoAsignaturasAsignadas.includes(ca.id));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -358,12 +384,13 @@ export default function CargaHorariaPage() {
                 ← Volver al dashboard
               </button>
             </div>
-            <button
+            {/* Eliminar botón Configurar Curso-Asignatura */}
+            {/* <button
               onClick={() => setShowConfigModal(true)}
               className="bg-white text-purple-700 px-4 py-2 rounded hover:bg-purple-50"
             >
               ⚙️ Configurar Curso-Asignatura
-            </button>
+            </button> */}
           </div>
         </div>
       </header>
@@ -378,6 +405,42 @@ export default function CargaHorariaPage() {
             </p>
           </div>
         )}
+
+        {/* Selector de periodo académico */}
+        <div className="mb-4 flex flex-wrap gap-4 items-center">
+          <label className="font-medium">Periodo académico:</label>
+          <select
+            value={periodoSeleccionado?.id || ''}
+            onChange={e => loadData(Number(e.target.value))}
+            className="border rounded px-2 py-1"
+          >
+            {periodos.map(p => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+          <label className="font-medium ml-6">Curso:</label>
+          <select
+            value={filtroCurso}
+            onChange={e => setFiltroCurso(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            <option value="">Todos</option>
+            {cursos.map(c => (
+              <option key={c.id} value={c.curso + c.paralelo}>{c.curso} {c.paralelo}</option>
+            ))}
+          </select>
+          <label className="font-medium ml-6">Asignatura:</label>
+          <select
+            value={filtroAsignatura}
+            onChange={e => setFiltroAsignatura(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            <option value="">Todas</option>
+            {asignaturas.map(a => (
+              <option key={a.id} value={a.nombre}>{a.nombre}</option>
+            ))}
+          </select>
+        </div>
 
         {/* Search */}
         <div className="mb-6">
@@ -399,9 +462,6 @@ export default function CargaHorariaPage() {
                   <div>
                     <h3 className="text-lg font-semibold">{docente.nombre_completo}</h3>
                     <p className="text-sm text-gray-600">{docente.correo}</p>
-                    {docente.titulo && (
-                      <p className="text-sm text-gray-500">{docente.titulo}</p>
-                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-purple-600">
@@ -445,21 +505,36 @@ export default function CargaHorariaPage() {
                           {docente.cargas.map((carga) => (
                             <tr key={carga.id}>
                               <td className="px-4 py-2 text-sm">
-                                {carga.curso_asignatura.curso?.curso} {carga.curso_asignatura.curso?.paralelo}
+                                {carga.curso_asignatura.curso?.curso ?? ''} {carga.curso_asignatura.curso?.paralelo ?? ''}
                               </td>
                               <td className="px-4 py-2 text-sm">
-                                {carga.curso_asignatura.asignatura?.nombre}
+                                {carga.curso_asignatura.asignatura?.nombre ?? ''}
                               </td>
                               <td className="px-4 py-2 text-sm font-medium">
-                                {carga.horas_semanales}
+                                {editCarga && editCarga.id === carga.id ? (
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={editCarga.horas_semanales}
+                                    onChange={e => setEditCarga({ ...editCarga, horas_semanales: e.target.value })}
+                                    className="border rounded px-2 py-1 w-20"
+                                  />
+                                ) : (
+                                  carga.horas_semanales
+                                )}
                               </td>
-                              <td className="px-4 py-2 text-sm">
-                                <button
-                                  onClick={() => handleDeleteCarga(carga.id, docente.nombre_completo)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Eliminar
-                                </button>
+                              <td className="px-4 py-2 text-sm space-x-2">
+                                {editCarga && editCarga.id === carga.id ? (
+                                  <>
+                                    <button onClick={handleEditCarga} className="text-green-600 hover:underline">Guardar</button>
+                                    <button onClick={() => setEditCarga(null)} className="text-gray-500 hover:underline">Cancelar</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => setEditCarga({ id: carga.id, horas_semanales: String(carga.horas_semanales) })} className="text-blue-600 hover:underline">Editar</button>
+                                    <button onClick={() => handleDeleteCarga(carga.id, docente.nombre_completo ? docente.nombre_completo : '')} className="text-red-600 hover:text-red-900">Eliminar</button>
+                                  </>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -487,36 +562,8 @@ export default function CargaHorariaPage() {
           </div>
         )}
 
-        {/* Relaciones Curso-Asignatura */}
-        <div className="mt-12">
-          <h2 className="text-lg font-semibold mb-4">Relaciones Curso-Asignatura</h2>
-          {cursoAsignaturas.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Curso</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Asignatura</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Horas/Sem</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {cursoAsignaturas.map((relacion) => (
-                    <tr key={relacion.id}>
-                      <td className="px-4 py-2">
-                        {relacion.cursos?.curso} {relacion.cursos?.paralelo}
-                      </td>
-                      <td className="px-4 py-2">{relacion.asignaturas?.nombre}</td>
-                      <td className="px-4 py-2 text-center">{relacion.horas_semanales}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 text-center">No hay relaciones configuradas</p>
-          )}
-        </div>
+        {/* Eliminar sección de Relaciones Curso-Asignatura y el modal de configuración */}
+        {/* ...el resto del código permanece igual... */}
       </main>
 
       {/* Modal Asignar Carga */}
@@ -533,43 +580,26 @@ export default function CargaHorariaPage() {
             <form onSubmit={handleAsignarCarga}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Curso *
+                  Relación Curso-Asignatura *
                 </label>
+                {/* Filtrar las opciones del select para mostrar solo las no asignadas */}
                 <select
-                  value={asignFormData.curso_id}
-                  onChange={(e) => setAsignFormData({ ...asignFormData, curso_id: e.target.value })}
+                  value={asignFormData.curso_asignatura_id}
+                  onChange={e => setAsignFormData({ curso_asignatura_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                   required
                 >
-                  <option value="">Seleccionar curso...</option>
-                  {cursos.map((curso) => (
-                    <option key={curso.id} value={curso.id}>
-                      {curso.curso} {curso.paralelo} - {curso.jornada}
+                  <option value="">Seleccionar relación curso-asignatura...</option>
+                  {cursoAsignaturasDisponibles.map((ca: any) => (
+                    <option key={ca.id} value={ca.id}>
+                      {ca.cursos.curso} {ca.cursos.paralelo} - {ca.asignaturas.nombre}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Asignatura *
-                </label>
-                <select
-                  value={asignFormData.asignatura_id}
-                  onChange={(e) => setAsignFormData({ ...asignFormData, asignatura_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                  required
-                >
-                  <option value="">Seleccionar asignatura...</option>
-                  {asignaturas.map((asignatura) => (
-                    <option key={asignatura.id} value={asignatura.id}>
-                      {asignatura.nombre} ({asignatura.codigo})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-6">
+              {/* Eliminar el input de horas del formulario de asignación */}
+              {/* <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Horas Semanales *
                 </label>
@@ -582,7 +612,7 @@ export default function CargaHorariaPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
                   required
                 />
-              </div>
+              </div> */}
 
               <div className="flex justify-end space-x-3">
                 <button
@@ -608,136 +638,8 @@ export default function CargaHorariaPage() {
         </div>
       )}
 
-      {/* Modal Configurar Curso-Asignatura */}
-      {showConfigModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-6">
-              Configurar Relación Curso-Asignatura
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Define qué asignaturas se imparten en cada curso
-            </p>
-            
-            <form onSubmit={handleConfigureCursoAsignatura}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Curso *
-                </label>
-                <select
-                  value={configFormData.curso_id}
-                  onChange={(e) => setConfigFormData({ ...configFormData, curso_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                  required
-                >
-                  <option value="">Seleccionar curso...</option>
-                  {cursos.map((curso) => (
-                    <option key={curso.id} value={curso.id}>
-                      {curso.curso} {curso.paralelo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Asignatura *
-                </label>
-                <select
-                  value={configFormData.asignatura_id}
-                  onChange={(e) => setConfigFormData({ ...configFormData, asignatura_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                  required
-                >
-                  <option value="">Seleccionar asignatura...</option>
-                  {asignaturas.map((asignatura) => (
-                    <option key={asignatura.id} value={asignatura.id}>
-                      {asignatura.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Horas Semanales por Defecto *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={configFormData.horas_semanales}
-                  onChange={(e) => setConfigFormData({ ...configFormData, horas_semanales: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowConfigModal(false)
-                    resetConfigForm()
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-                >
-                  Crear Relación
-                </button>
-              </div>
-            </form>
-
-     {/* Relaciones existentes */}
-            {cursoAsignaturas.length > 0 ? (
-              <div className="mt-8 overflow-x-auto">
-                <h3 className="text-lg font-semibold mb-4">
-                  Relaciones Curso-Asignatura
-                </h3>
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">
-                        Curso
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">
-                        Asignatura
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">
-                        Horas/Sem
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {cursoAsignaturas.map((relacion) => (
-                      <tr key={relacion.id}>
-                        <td className="px-4 py-2">
-                          {relacion.cursos?.curso} {relacion.cursos?.paralelo}
-                        </td>
-                        <td className="px-4 py-2">
-                          {relacion.asignaturas?.nombre}
-                        </td>
-                        <td className="px-4 py-2 text-center">
-                          {relacion.horas_semanales}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="mt-8 text-sm text-gray-500 text-center">
-                No hay relaciones configuradas
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Eliminar sección de Relaciones Curso-Asignatura y el modal de configuración */}
+      {/* ...el resto del código permanece igual... */}
     </div>
   )
 }

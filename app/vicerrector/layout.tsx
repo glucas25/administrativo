@@ -16,10 +16,25 @@ export default function VicerrectorLayout({
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    'Gestión Académica': false,
+    'Gestión de Documentos': false,
+    'Gestión de Usuarios': false,
+  });
 
   useEffect(() => {
     checkUser()
   }, [])
+
+  useEffect(() => {
+    // Expande el grupo correspondiente a la ruta activa al cargar
+    groupedMenu.forEach(group => {
+      if (group.items.some(item => pathname.startsWith(item.href))) {
+        setExpanded(exp => ({ ...exp, [group.section]: true }));
+      }
+    });
+    // eslint-disable-next-line
+  }, [pathname]);
 
   async function checkUser() {
     try {
@@ -31,19 +46,18 @@ export default function VicerrectorLayout({
       }
 
       const { data: userData } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+        .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
-      if (userData?.rol !== 'vicerrector') {
+      const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+      console.log('Rol detectado en layout vicerrector:', rol);
+      if (rol !== 'vicerrector') {
         router.push('/docente')
         return
       }
 
       setUser({
-        ...userData,
-        nombre_completo: `${userData.apellidos ?? ''} ${userData.nombres ?? ''}`.trim(),
+        ...userData[0],
+        nombre_completo: userData[0].nombre_completo || `${userData[0].apellidos ?? ''} ${userData[0].nombres ?? ''}`.trim(),
       })
     } catch (error) {
       console.error('Error:', error)
@@ -59,13 +73,43 @@ export default function VicerrectorLayout({
     toast.success('Sesión cerrada')
   }
 
-  const menuItems = [
-    { href: '/vicerrector', label: 'Dashboard', icon: '🏠' },
-    { href: '/vicerrector/tipos-documento', label: 'Tipos de Documento', icon: '📋' },
-    { href: '/vicerrector/docentes', label: 'Gestión de Docentes', icon: '👥' },
-    { href: '/vicerrector/entregas', label: 'Entregas Programadas', icon: '📅' },
-    { href: '/vicerrector/documentos', label: 'Revisar Documentos', icon: '📄' },
-  ]
+  const groupedMenu = [
+    {
+      section: 'Dashboard',
+      items: [
+        { href: '/vicerrector', label: 'Dashboard', icon: '🏠' },
+      ],
+    },
+    {
+      section: 'Gestión Académica',
+      icon: '📚',
+      items: [
+        { href: '/vicerrector/asignaturas', label: 'Asignaturas', icon: '📖' },
+        { href: '/vicerrector/cursos', label: 'Cursos', icon: '🏫' },
+        { href: '/vicerrector/periodos', label: 'Períodos Académicos', icon: '📆' },
+        { href: '/vicerrector/curso-asignatura', label: 'Malla Curricular', icon: '🗂️' },
+        { href: '/vicerrector/carga-horaria', label: 'Carga Horaria', icon: '⏰' },
+      ],
+    },
+    {
+      section: 'Gestión de Documentos',
+      icon: '📄',
+      items: [
+        { href: '/vicerrector/tipos-documento', label: 'Tipos de Documento', icon: '📋' },
+        { href: '/vicerrector/entregas', label: 'Programar Entregas', icon: '📅' },
+        { href: '/vicerrector/documentos', label: 'Revisar Documentos', icon: '📝' },
+      ],
+    },
+    {
+      section: 'Gestión de Usuarios',
+      icon: '👥',
+      items: [
+        { href: '/vicerrector/docentes', label: 'Docentes', icon: '👨‍🏫' },
+        { href: '/vicerrector/importar', label: 'Importar Masivamente', icon: '⬆️' },
+        { href: '/vicerrector/reportes', label: 'Reportes', icon: '📊' },
+      ],
+    },
+  ];
 
   if (loading) {
     return (
@@ -110,26 +154,41 @@ export default function VicerrectorLayout({
         {/* Sidebar - Desktop */}
         <aside className="hidden lg:block w-64 bg-white shadow-md fixed left-0 top-14 bottom-0 overflow-y-auto">
           <nav className="p-4">
-            <ul className="space-y-2">
-              {menuItems.map((item) => {
-                const isActive = pathname === item.href
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                        isActive
-                          ? 'bg-purple-100 text-purple-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-xl">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
+            {groupedMenu.map(group => (
+              <div key={group.section} className="mb-6">
+                <button
+                  type="button"
+                  className="flex items-center mb-2 text-xs text-gray-500 uppercase tracking-wider w-full focus:outline-none"
+                  onClick={() => setExpanded(exp => ({ ...exp, [group.section]: !exp[group.section] }))}
+                >
+                  {group.icon && <span className="mr-2 text-base">{group.icon}</span>}
+                  {group.section}
+                  <span className="ml-auto text-xs">{expanded[group.section] ? '▼' : '►'}</span>
+                </button>
+                {expanded[group.section] && (
+                  <ul className="space-y-1">
+                    {group.items.map(item => {
+                      const isActive = pathname === item.href
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition text-sm font-medium ${
+                              isActive
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <span className="text-lg">{item.icon}</span>
+                            <span>{item.label}</span>
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            ))}
           </nav>
         </aside>
 
@@ -147,27 +206,42 @@ export default function VicerrectorLayout({
               <h2 className="text-lg font-bold">Menú</h2>
             </div>
             <nav className="p-4">
-              <ul className="space-y-2">
-                {menuItems.map((item) => {
-                  const isActive = pathname === item.href
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
-                          isActive
-                            ? 'bg-purple-100 text-purple-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        <span className="text-xl">{item.icon}</span>
-                        <span>{item.label}</span>
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
+              {groupedMenu.map(group => (
+                <div key={group.section} className="mb-6">
+                  <button
+                    type="button"
+                    className="flex items-center mb-2 text-xs text-gray-500 uppercase tracking-wider w-full focus:outline-none"
+                    onClick={() => setExpanded(exp => ({ ...exp, [group.section]: !exp[group.section] }))}
+                  >
+                    {group.icon && <span className="mr-2 text-base">{group.icon}</span>}
+                    {group.section}
+                    <span className="ml-auto text-xs">{expanded[group.section] ? '▼' : '►'}</span>
+                  </button>
+                  {expanded[group.section] && (
+                    <ul className="space-y-1">
+                      {group.items.map(item => {
+                        const isActive = pathname === item.href
+                        return (
+                          <li key={item.href}>
+                            <Link
+                              href={item.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition text-sm font-medium ${
+                                isActive
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <span className="text-lg">{item.icon}</span>
+                              <span>{item.label}</span>
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ))}
             </nav>
           </aside>
         </div>

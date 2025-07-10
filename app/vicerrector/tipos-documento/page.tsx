@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 interface TipoDocumento {
   id: number
@@ -27,6 +28,8 @@ export default function TiposDocumentoPage() {
     requiere_revision: true,
     requiere_asignatura: true
   })
+
+  const router = useRouter()
 
   useEffect(() => {
     loadTiposDocumento()
@@ -156,6 +159,22 @@ export default function TiposDocumentoPage() {
 
   return (
     <div className="space-y-6">
+      <header className="bg-purple-700 text-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold">Tipos de documentos</h1>
+              <button
+                onClick={() => router.push('/vicerrector')}
+                className="text-purple-200 hover:text-white text-sm mt-1"
+              >
+                ← Volver al dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Tipos de Documento</h1>

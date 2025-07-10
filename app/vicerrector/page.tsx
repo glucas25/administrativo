@@ -6,6 +6,18 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { Usuario } from '@/types/database'
 import toast from 'react-hot-toast'
+import { Pie, Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+} from 'chart.js';
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 export default function VicerrectorDashboard() {
   const router = useRouter()
@@ -19,11 +31,17 @@ export default function VicerrectorDashboard() {
     asignaturas: 0,
     cursos: 0
   })
+  const [docentes, setDocentes] = useState<any[]>([]);
+  const [cargasPorDocente, setCargasPorDocente] = useState<any[]>([]);
+  const [documentosEstado, setDocumentosEstado] = useState({ ENVIADO: 0, APROBADO: 0, OBSERVADO: 0 });
+  const [ultimosDocentes, setUltimosDocentes] = useState<any[]>([]);
+  const [ultimasEntregas, setUltimasEntregas] = useState<any[]>([]);
 
   useEffect(() => {
-    checkUser()
-    loadStats()
-  }, [])
+    checkUser();
+    loadStats();
+    loadGraficos();
+  }, []);
 
   const checkUser = async () => {
     try {
@@ -34,22 +52,22 @@ export default function VicerrectorDashboard() {
         return
       }
 
+      // Usar la función correcta para obtener el perfil
       const { data: userData } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
+        .rpc('obtener_perfil_usuario', { p_user_id: authUser.id })
 
-      if (userData && userData.rol !== 'vicerrector') {
+      const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+      console.log('Rol detectado en dashboard vicerrector:', rol);
+      if (rol !== 'vicerrector') {
         toast.error('No tienes permisos para acceder a esta sección')
         router.push('/docente')
         return
       }
 
-      if (userData) {
+      if (userData && userData[0]) {
         setUser({
-          ...userData,
-          nombre_completo: `${userData.apellidos ?? ''} ${userData.nombres ?? ''}`.trim()
+          ...userData[0],
+          nombre_completo: userData[0].nombre_completo || `${userData[0].apellidos ?? ''} ${userData[0].nombres ?? ''}`.trim()
         })
       }
     } catch (error) {
@@ -62,11 +80,9 @@ export default function VicerrectorDashboard() {
   const loadStats = async () => {
     try {
       // Contar docentes
-      const { count: docentesCount } = await supabase
-        .from('usuarios')
-        .select('*', { count: 'exact', head: true })
-        .eq('rol', 'docente')
-        .eq('activo', true)
+      const { data: docentesData } = await supabase
+        .rpc('listar_usuarios_activos', { p_rol: 'docente' })
+      const docentesCount = docentesData ? docentesData.length : 0
 
       // Contar documentos por revisar
       const { count: porRevisarCount } = await supabase
@@ -111,6 +127,34 @@ export default function VicerrectorDashboard() {
     }
   }
 
+  const loadGraficos = async () => {
+    // Docentes y cargas
+    const { data: docentesData } = await supabase.from('usuarios_completos').select('*').eq('rol', 'docente').eq('activo', true);
+    setDocentes(docentesData || []);
+    // Cargas por docente
+    const { data: cargasData } = await supabase.from('carga_horaria').select('docente_id, horas_semanales').eq('activo', true);
+    const cargasPorDoc = {} as Record<string, number>;
+    (cargasData || []).forEach((c: any) => {
+      cargasPorDoc[c.docente_id] = (cargasPorDoc[c.docente_id] || 0) + c.horas_semanales;
+    });
+    setCargasPorDocente(Object.entries(cargasPorDoc).map(([id, horas]) => ({ id, horas })));
+    // Documentos por estado
+    const { data: docsData } = await supabase.from('documentos').select('estado');
+    const estadoCount = { ENVIADO: 0, APROBADO: 0, OBSERVADO: 0 };
+    (docsData || []).forEach((d: any) => {
+      if (d.estado === 'ENVIADO' || d.estado === 'APROBADO' || d.estado === 'OBSERVADO') {
+        const estado = d.estado as 'ENVIADO' | 'APROBADO' | 'OBSERVADO';
+        estadoCount[estado] = (estadoCount[estado] || 0) + 1;
+      }
+    });
+    setDocumentosEstado(estadoCount);
+    // Últimos docentes
+    setUltimosDocentes((docentesData || []).slice(-5).reverse());
+    // Últimas entregas
+    const { data: entregasData } = await supabase.from('entregas_programadas').select('*').order('fecha_entrega', { ascending: false }).limit(5);
+    setUltimasEntregas(entregasData || []);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/auth/login')
@@ -119,6 +163,29 @@ export default function VicerrectorDashboard() {
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
   }
+
+  // Gráfico de pastel de documentos por estado
+  const pieData = {
+    labels: ['Enviados', 'Aprobados', 'Observados'],
+    datasets: [
+      {
+        data: [documentosEstado.ENVIADO, documentosEstado.APROBADO, documentosEstado.OBSERVADO],
+        backgroundColor: ['#fbbf24', '#34d399', '#f87171'],
+        borderWidth: 1,
+      },
+    ],
+  };
+  // Gráfico de barras de cargas horarias por docente
+  const barData = {
+    labels: docentes.map(d => d.nombre_completo || d.correo),
+    datasets: [
+      {
+        label: 'Horas asignadas',
+        data: docentes.map(d => (cargasPorDocente.find(c => c.id === d.id)?.horas || 0)),
+        backgroundColor: '#6366f1',
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -184,87 +251,41 @@ export default function VicerrectorDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Gestión Académica */}
+        {/* Gráficos y Novedades */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">📚 Gestión Académica</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => router.push('/vicerrector/asignaturas')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Gestionar Asignaturas
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/cursos')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Gestionar Cursos
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/periodos')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Períodos Académicos
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/carga-horaria')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Asignar Carga Horaria
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Distribución de documentos por estado</h3>
+            <Pie data={pieData} />
           </div>
-
-          {/* Gestión de Documentos */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">📄 Gestión de Documentos</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => router.push('/vicerrector/tipos-documento')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Tipos de Documento
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/entregas')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Programar Entregas
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/documentos')}
-                className="w-full text-left px-4 py-2 bg-orange-50 rounded hover:bg-orange-100 transition-colors"
-              >
-                → Revisar Documentos ({stats.documentosPorRevisar})
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Carga horaria total por docente</h3>
+            <Bar data={barData} options={{ plugins: { legend: { display: false } } }} />
           </div>
+        </div>
 
-          {/* Gestión de Usuarios */}
+        {/* Sección de novedades */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">👥 Gestión de Usuarios</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => router.push('/vicerrector/docentes')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Gestionar Docentes
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/importar')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Importar Masivamente
-              </button>
-              <button
-                onClick={() => router.push('/vicerrector/reportes')}
-                className="w-full text-left px-4 py-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
-              >
-                → Generar Reportes
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Últimos docentes agregados</h3>
+            <ul className="divide-y">
+              {ultimosDocentes.map(d => (
+                <li key={d.id} className="py-2">
+                  <span className="font-medium">{d.nombre_completo || d.correo}</span>
+                  <span className="ml-2 text-gray-500 text-xs">{d.correo}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">Últimas entregas programadas</h3>
+            <ul className="divide-y">
+              {ultimasEntregas.map(e => (
+                <li key={e.id} className="py-2">
+                  <span className="font-medium">{e.nombre || 'Entrega'}</span>
+                  <span className="ml-2 text-gray-500 text-xs">{e.fecha_entrega}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </main>

@@ -32,6 +32,13 @@ export default function SubirDocumentoPage() {
       router.push('/auth/login')
       return
     }
+    // Validar rol
+    const { data: userData } = await supabase.rpc('obtener_perfil_usuario', { p_user_id: user.id })
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'docente') {
+      router.push('/vicerrector')
+      return
+    }
     setLoading(false)
   }
 

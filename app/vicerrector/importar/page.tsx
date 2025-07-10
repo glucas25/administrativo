@@ -1,5 +1,8 @@
-import { useState } from 'react';
+'use client'
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export default function ImportarUsuariosPage() {
   const [csvData, setCsvData] = useState<string>('');
@@ -7,6 +10,27 @@ export default function ImportarUsuariosPage() {
     { correo: '', password: '', apellidos: '', nombres: '', area: '', titulo: '' }
   ]);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/auth/login')
+      return
+    }
+
+    const { data: userData } = await supabase
+      .rpc('obtener_perfil_usuario', { p_user_id: user.id })
+
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'vicerrector') {
+      router.push('/docente')
+    }
+  }
 
   // Handler para archivo CSV
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,10 +59,22 @@ export default function ImportarUsuariosPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Aquí deberías llamar a tu API para crear usuarios en lote
-      toast.success('Usuarios enviados para creación (simulado)');
+      // Llamar a la función crear_usuario_completo para cada usuario
+      for (const user of manualUsers) {
+        await supabase.rpc('crear_usuario_completo', {
+          p_email: user.correo,
+          p_password: user.password,
+          p_cedula: (user as any).cedula || null,
+          p_apellidos: user.apellidos,
+          p_nombres: user.nombres,
+          p_area: user.area || null,
+          p_titulo: user.titulo || null,
+          p_rol: 'docente'
+        })
+      }
+      toast.success('Usuarios enviados para creación')
     } catch (err) {
-      toast.error('Error al importar usuarios');
+      toast.error('Error al importar usuarios')
     } finally {
       setLoading(false);
     }
@@ -59,6 +95,21 @@ export default function ImportarUsuariosPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-8">
+      <header className="bg-purple-700 text-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold">Importar masivamente</h1>
+              <button
+                onClick={() => router.push('/vicerrector')}
+                className="text-purple-200 hover:text-white text-sm mt-1"
+              >
+                ← Volver al dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
       <h1 className="text-2xl font-bold mb-6">Importar Usuarios</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Importar desde archivo */}

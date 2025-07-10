@@ -22,6 +22,12 @@ export default function MisDocumentosPage() {
       router.push('/auth/login')
       return
     }
+    // Validar rol
+    const { data: userData } = await supabase.rpc('obtener_perfil_usuario', { p_user_id: user.id })
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'docente') {
+      router.push('/vicerrector')
+    }
   }
 
   const loadDocumentos = async () => {
@@ -85,8 +91,8 @@ export default function MisDocumentosPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {documentos.map((doc) => (
                 <tr key={doc.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.tipos_documento?.nombre || ''}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.asignaturas?.nombre || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.tipo_documento?.nombre || ''}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.asignatura?.nombre || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoColor(doc.estado)}`}>{doc.estado}</span>
                   </td>

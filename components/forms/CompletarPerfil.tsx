@@ -6,8 +6,6 @@ export default function CompletarPerfil({ authUser, onComplete }: { authUser: an
     nombres: '',
     apellidos: '',
     cedula: '',
-    titulo: '',
-    area: '',
     rol: 'docente'
   })
   const [loading, setLoading] = useState(false)
@@ -53,14 +51,6 @@ export default function CompletarPerfil({ authUser, onComplete }: { authUser: an
         <div className="form-group">
           <label htmlFor="cedula">Cédula *</label>
           <input type="text" id="cedula" name="cedula" value={formData.cedula} onChange={handleChange} required />
-        </div>
-        <div className="form-group">
-          <label htmlFor="titulo">Título académico</label>
-          <input type="text" id="titulo" name="titulo" value={formData.titulo} onChange={handleChange} />
-        </div>
-        <div className="form-group">
-          <label htmlFor="area">Área de especialización</label>
-          <input type="text" id="area" name="area" value={formData.area} onChange={handleChange} />
         </div>
         <button type="submit" disabled={loading}>
           {loading ? 'Guardando...' : 'Guardar perfil'}

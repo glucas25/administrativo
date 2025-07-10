@@ -4,7 +4,7 @@ import { Readable } from 'stream'
 
 // Configurar autenticación
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(process.cwd(), 'google-credentials.json'),
+  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(process.cwd(), 'google-credentials.json'),
   scopes: ['https://www.googleapis.com/auth/drive.file']
 })
 

@@ -14,8 +14,6 @@ export interface Usuario {
   apellidos?: string
   nombres?: string
   funcion?: string
-  area?: string
-  titulo?: string
 }
 
 export interface Asignatura {
@@ -41,14 +39,13 @@ export interface Curso {
 }
 
 export interface CursoAsignatura {
-  id: number
-  curso_id: number
-  asignatura_id: number
-  horas_semanales: number
-  activo: boolean
-  // Relaciones
-  curso?: Curso
-  asignatura?: Asignatura
+  id: number;
+  curso_id: number;
+  asignatura_id: number;
+  horas_semanales: number;
+  activo: boolean;
+  cursos?: Curso; // Relación anidada en plural
+  asignaturas?: Asignatura; // Relación anidada en plural
 }
 
 export interface CargaHoraria {

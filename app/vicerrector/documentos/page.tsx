@@ -24,12 +24,10 @@ export default function RevisarDocumentosPage() {
     }
 
     const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single()
+      .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
-    if (userData?.rol !== 'vicerrector') {
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'vicerrector') {
       router.push('/docente')
     }
   }
@@ -38,15 +36,15 @@ export default function RevisarDocumentosPage() {
     try {
       const { data } = await supabase
         .from('documentos')
-        .select(`*, docentes:usuarios (apellidos, nombres), tipos_documento (nombre)`)
+        .select(`*, docente:perfiles_docentes (apellidos, nombres), tipos_documento (nombre)`)
         .order('fecha_subida', { ascending: false })
 
       const processed = (data || []).map((doc: any) => ({
         ...doc,
-        docentes: doc.docentes
+        docente: doc.docente
           ? {
-              ...doc.docentes,
-              nombre_completo: `${doc.docentes.apellidos ?? ''} ${doc.docentes.nombres ?? ''}`.trim(),
+              ...doc.docente,
+              nombre_completo: `${doc.docente.apellidos ?? ''} ${doc.docente.nombres ?? ''}`.trim(),
             }
           : null,
       }))
@@ -82,14 +80,18 @@ export default function RevisarDocumentosPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-purple-700 text-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Revisar Documentos</h1>
-          <button
-            onClick={() => router.push('/vicerrector')}
-            className="text-purple-200 hover:text-white text-sm"
-          >
-            ← Volver al dashboard
-          </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold">Revisar documentos</h1>
+              <button
+                onClick={() => router.push('/vicerrector')}
+                className="text-purple-200 hover:text-white text-sm mt-1"
+              >
+                ← Volver al dashboard
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -108,8 +110,8 @@ export default function RevisarDocumentosPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {documentos.map((doc) => (
                 <tr key={doc.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(doc as any).docentes?.nombre_completo || ''}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.tipos_documento?.nombre || ''}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{(doc as any).docente?.nombre_completo || ''}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.tipo_documento?.nombre || ''}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{doc.estado}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(doc.fecha_subida).toLocaleDateString()}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">

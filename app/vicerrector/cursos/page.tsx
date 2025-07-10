@@ -60,12 +60,10 @@ export default function CursosPage() {
     }
 
     const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single()
+      .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
-    if (userData?.rol !== 'vicerrector') {
+    const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
+    if (rol !== 'vicerrector') {
       router.push('/docente')
     }
   }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { iniciarSesion } from '@/lib/auth/cliente'
+import { iniciarSesion, testEdgeFunction } from '@/lib/auth/cliente'
 import CompletarPerfil from '@/components/forms/CompletarPerfil'
 
 export default function LoginPage() {
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [needsProfile, setNeedsProfile] = useState(false)
+  // No se usa needsProfile ni authUser en el nuevo flujo
   const [authUser, setAuthUser] = useState<any>(null)
 
   useEffect(() => {
@@ -29,25 +29,25 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setNeedsProfile(false)
-    setAuthUser(null)
+    // No se usa needsProfile ni authUser en el nuevo flujo
     try {
+      
       const result = await iniciarSesion(email, password)
+      console.log('Perfil recibido tras login:', result.user);
       if (result.success) {
         toast.success('¡Bienvenido!')
-        // Redirige según el rol
-        if (result.user.rol === 'vicerrector') {
-          router.push('/vicerrector')
-        } else if (result.user.rol === 'docente') {
-          router.push('/docente')
-        } else if (result.user.rol === 'admin') {
-          router.push('/admin')
+        // Redirige según el rol (robusto)
+        const rol = (result.user.rol || '').toLowerCase().trim();
+        console.log('Redirigiendo según rol:', rol);
+        if (rol === 'vicerrector') {
+          router.push('/vicerrector');
+        } else if (rol === 'docente') {
+          router.push('/docente');
+        } else if (rol === 'admin') {
+          router.push('/admin');
         } else {
-          router.push('/')
+          router.push('/');
         }
-      } else if (result.needsProfile) {
-        setNeedsProfile(true)
-        setAuthUser(result.auth_user)
       } else {
         toast.error(
           typeof result.error === 'string'
@@ -64,10 +64,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (needsProfile && authUser) {
-    return <CompletarPerfil authUser={authUser} onComplete={() => router.push('/')} />
   }
 
   return (

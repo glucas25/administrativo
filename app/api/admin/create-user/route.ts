@@ -32,12 +32,9 @@ export async function POST(request: NextRequest) {
 
     // Verificar rol del usuario
     const { data: userData, error: userError } = await supabaseAdmin
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single()
+      .rpc('obtener_datos_usuario_completos', { p_user_id: user.id })
 
-    if (userError || userData?.rol !== 'vicerrector') {
+    if (userError || !userData || userData[0]?.rol !== 'vicerrector') {
       console.log('User is not vicerrector')
       return NextResponse.json(
         { success: false, error: 'Solo el vicerrector puede crear usuarios' },
@@ -110,23 +107,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear registro en tabla usuarios
-
+    // Crear usuario usando la función crear_usuario_completo
     const { data: dbUser, error: dbError } = await supabaseAdmin
-      .from('usuarios')
-      .insert({
-        id: authData.user.id,
-        correo: email,
-        apellidos,
-        nombres,
-        cedula: cedula || null,
-        area: area || null,
-        titulo: titulo || null,
-        rol: 'docente',
-        activo: true
+      .rpc('crear_usuario_completo', {
+        p_email: email,
+        p_password: password,
+        p_cedula: cedula || null,
+        p_apellidos: apellidos,
+        p_nombres: nombres,
+        p_rol: 'docente'
       })
-      .select('id')
-      .single()
 
     if (dbError) {
       console.error('Error creating user record:', dbError)
@@ -160,7 +150,7 @@ export async function POST(request: NextRequest) {
     console.error('Unexpected error:', error)
     // Esto enviará el mensaje real al frontend (solo hazlo en desarrollo)
     return NextResponse.json(
-      { success: false, error: error?.message || JSON.stringify(error) || 'Error interno del servidor' },
+      { success: false, error: (error as any)?.message || JSON.stringify(error) || 'Error interno del servidor' },
       { status: 500 }
     )
   }
