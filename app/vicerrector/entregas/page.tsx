@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { EntregaProgramada, TipoDocumento, PeriodoAcademico } from '@/types/database'
+import { EntregaProgramada, TipoDocumento, PeriodoAcademico, Etapa } from '@/types/database'
 import toast from 'react-hot-toast'
 
 export default function EntregasProgramadasPage() {
@@ -11,12 +11,15 @@ export default function EntregasProgramadasPage() {
   const [entregas, setEntregas] = useState<EntregaProgramada[]>([])
   const [tiposDocumento, setTiposDocumento] = useState<TipoDocumento[]>([])
   const [periodos, setPeriodos] = useState<PeriodoAcademico[]>([])
+  const [etapas, setEtapas] = useState<Etapa[]>([])
+  const [ultimoPeriodo, setUltimoPeriodo] = useState<PeriodoAcademico | null>(null)
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingEntrega, setEditingEntrega] = useState<EntregaProgramada | null>(null)
   const [formData, setFormData] = useState({
     tipo_documento_id: '',
     periodo_id: '',
+    etapa_id: '', // nuevo
     titulo: '',
     descripcion: '',
     fecha_inicio: '',
@@ -28,6 +31,17 @@ export default function EntregasProgramadasPage() {
     checkAuth()
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (!editingEntrega) {
+      const tipo = tiposDocumento.find(t => t.id === parseInt(formData.tipo_documento_id))?.nombre || ''
+      const etapa = etapas.find(e => e.id === parseInt(formData.etapa_id))?.nombre || ''
+      if (tipo && etapa) {
+        setFormData(f => ({ ...f, titulo: `${tipo} - ${etapa}` }))
+      }
+    }
+    // eslint-disable-next-line
+  }, [formData.tipo_documento_id, formData.etapa_id])
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -45,11 +59,22 @@ export default function EntregasProgramadasPage() {
     }
   }
 
+  const cargarEtapasPorPeriodo = async (periodoId: string) => {
+    if (!periodoId) { setEtapas([]); return; }
+    const { data: etapasData } = await supabase
+      .from('etapas')
+      .select('*')
+      .eq('periodo_id', periodoId)
+      .eq('activo', true)
+      .order('orden', { ascending: true })
+    setEtapas(etapasData || [])
+  }
+
   const loadData = async () => {
     try {
       const { data: entregasData } = await supabase
         .from('entregas_programadas')
-        .select(`*, tipo_documento:tipos_documento (nombre), periodo:periodos_academicos (nombre)`)
+        .select(`*, tipo_documento:tipos_documento (nombre), etapa:etapas (nombre), periodo:periodos_academicos (nombre)`) // incluir etapa
         .order('fecha_limite', { ascending: false })
       setEntregas(entregasData || [])
 
@@ -65,6 +90,10 @@ export default function EntregasProgramadasPage() {
         .select('*')
         .order('fecha_inicio', { ascending: false })
       setPeriodos(periodosData || [])
+      if ((periodosData || []).length > 0) {
+        setUltimoPeriodo(periodosData[0])
+        await cargarEtapasPorPeriodo(periodosData[0].id.toString())
+      }
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Error al cargar entregas')
@@ -79,7 +108,8 @@ export default function EntregasProgramadasPage() {
     try {
       const payload = {
         tipo_documento_id: formData.tipo_documento_id ? parseInt(formData.tipo_documento_id) : null,
-        periodo_id: formData.periodo_id ? parseInt(formData.periodo_id) : null,
+        periodo_id: ultimoPeriodo ? ultimoPeriodo.id : null, // siempre el último periodo
+        etapa_id: formData.etapa_id ? parseInt(formData.etapa_id) : null,
         titulo: formData.titulo,
         descripcion: formData.descripcion,
         fecha_inicio: formData.fecha_inicio,
@@ -117,12 +147,14 @@ export default function EntregasProgramadasPage() {
     setFormData({
       tipo_documento_id: entrega.tipo_documento_id.toString(),
       periodo_id: entrega.periodo_id.toString(),
+      etapa_id: entrega.etapa_id ? entrega.etapa_id.toString() : '',
       titulo: entrega.titulo,
       descripcion: entrega.descripcion || '',
       fecha_inicio: entrega.fecha_inicio,
       fecha_limite: entrega.fecha_limite,
       es_obligatorio: entrega.es_obligatorio,
     })
+    cargarEtapasPorPeriodo(entrega.periodo_id.toString())
     setShowModal(true)
   }
 
@@ -160,7 +192,8 @@ export default function EntregasProgramadasPage() {
   const resetForm = () => {
     setFormData({
       tipo_documento_id: '',
-      periodo_id: '',
+      periodo_id: ultimoPeriodo ? ultimoPeriodo.id.toString() : '',
+      etapa_id: '',
       titulo: '',
       descripcion: '',
       fecha_inicio: '',
@@ -215,7 +248,7 @@ export default function EntregasProgramadasPage() {
                   Título
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Período
+                  Etapa
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Inicio
@@ -244,7 +277,7 @@ export default function EntregasProgramadasPage() {
                     {entrega.titulo}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {entrega.periodo?.nombre || ''}
+                    {entrega.etapa?.nombre || ''}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(entrega.fecha_inicio).toLocaleDateString()}
@@ -328,20 +361,45 @@ export default function EntregasProgramadasPage() {
                   </select>
                 </div>
 
+                {/* {editingEntrega && (
+<div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">
+    Período Académico *
+  </label>
+  <select
+    value={formData.periodo_id}
+    onChange={e => {
+      setFormData({ ...formData, periodo_id: e.target.value, etapa_id: '' })
+      cargarEtapasPorPeriodo(e.target.value)
+    }}
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+    required
+  >
+    <option value="">Seleccione...</option>
+    {periodos.map((periodo) => (
+      <option key={periodo.id} value={periodo.id}>
+        {periodo.nombre}
+      </option>
+    ))}
+  </select>
+</div>
+)} */}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Período Académico *
+                    Etapa *
                   </label>
                   <select
-                    value={formData.periodo_id}
-                    onChange={(e) => setFormData({ ...formData, periodo_id: e.target.value })}
+                    value={formData.etapa_id}
+                    onChange={e => setFormData({ ...formData, etapa_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                     required
+                    disabled={!etapas.length}
                   >
                     <option value="">Seleccione...</option>
-                    {periodos.map((periodo) => (
-                      <option key={periodo.id} value={periodo.id}>
-                        {periodo.nombre}
+                    {etapas.map(etapa => (
+                      <option key={etapa.id} value={etapa.id}>
+                        {etapa.nombre}
                       </option>
                     ))}
                   </select>

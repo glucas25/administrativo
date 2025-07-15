@@ -10,3 +10,8 @@ if (typeof window !== 'undefined') {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Exponer supabase en window para depuración
+if (typeof window !== 'undefined') {
+  (window as any).supabase = supabase;
+}

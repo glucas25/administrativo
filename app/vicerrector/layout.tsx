@@ -21,10 +21,39 @@ export default function VicerrectorLayout({
     'Gestión de Documentos': false,
     'Gestión de Usuarios': false,
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkUser()
-  }, [])
+    const fetchProfile = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (!userId) {
+        router.push('/auth/login');
+        return;
+      }
+      // Buscar en la vista usuarios_completos por user_id
+      const { data, error } = await supabase
+        .from('usuarios_completos')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (!data) {
+        setError('Tu usuario no está registrado en el sistema. Contacta al administrador.');
+        setLoading(false);
+        return;
+      }
+      if (data.rol !== 'vicerrector') {
+        router.push('/auth/login');
+        return;
+      }
+      setUser({
+        ...data,
+        nombre_completo: data.nombre_completo || `${data.apellidos ?? ''} ${data.nombres ?? ''}`.trim()
+      });
+      setLoading(false);
+    };
+    fetchProfile();
+  }, []);
 
   useEffect(() => {
     // Expande el grupo correspondiente a la ruta activa al cargar
@@ -36,37 +65,6 @@ export default function VicerrectorLayout({
     // eslint-disable-next-line
   }, [pathname]);
 
-  async function checkUser() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
-
-      const { data: userData } = await supabase
-        .rpc('obtener_perfil_usuario', { p_user_id: user.id })
-
-      const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
-      console.log('Rol detectado en layout vicerrector:', rol);
-      if (rol !== 'vicerrector') {
-        router.push('/docente')
-        return
-      }
-
-      setUser({
-        ...userData[0],
-        nombre_completo: userData[0].nombre_completo || `${userData[0].apellidos ?? ''} ${userData[0].nombres ?? ''}`.trim(),
-      })
-    } catch (error) {
-      console.error('Error:', error)
-      router.push('/auth/login')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/auth/login')
@@ -77,7 +75,7 @@ export default function VicerrectorLayout({
     {
       section: 'Dashboard',
       items: [
-        { href: '/vicerrector', label: 'Dashboard', icon: '🏠' },
+    { href: '/vicerrector', label: 'Dashboard', icon: '🏠' },
       ],
     },
     {
@@ -95,7 +93,7 @@ export default function VicerrectorLayout({
       section: 'Gestión de Documentos',
       icon: '📄',
       items: [
-        { href: '/vicerrector/tipos-documento', label: 'Tipos de Documento', icon: '📋' },
+    { href: '/vicerrector/tipos-documento', label: 'Tipos de Documento', icon: '📋' },
         { href: '/vicerrector/entregas', label: 'Programar Entregas', icon: '📅' },
         { href: '/vicerrector/documentos', label: 'Revisar Documentos', icon: '📝' },
       ],
@@ -121,6 +119,7 @@ export default function VicerrectorLayout({
       </div>
     )
   }
+  if (error) return <div className="text-red-600 text-center mt-8">{error}</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,24 +167,24 @@ export default function VicerrectorLayout({
                 {expanded[group.section] && (
                   <ul className="space-y-1">
                     {group.items.map(item => {
-                      const isActive = pathname === item.href
-                      return (
-                        <li key={item.href}>
-                          <Link
-                            href={item.href}
+                const isActive = pathname === item.href
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
                             className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition text-sm font-medium ${
-                              isActive
+                        isActive
                                 ? 'bg-purple-100 text-purple-700'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
                             <span className="text-lg">{item.icon}</span>
-                            <span>{item.label}</span>
-                          </Link>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
                 )}
               </div>
             ))}
@@ -220,25 +219,25 @@ export default function VicerrectorLayout({
                   {expanded[group.section] && (
                     <ul className="space-y-1">
                       {group.items.map(item => {
-                        const isActive = pathname === item.href
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              onClick={() => setSidebarOpen(false)}
+                  const isActive = pathname === item.href
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setSidebarOpen(false)}
                               className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition text-sm font-medium ${
-                                isActive
+                          isActive
                                   ? 'bg-purple-100 text-purple-700'
-                                  : 'text-gray-700 hover:bg-gray-100'
-                              }`}
-                            >
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
                               <span className="text-lg">{item.icon}</span>
-                              <span>{item.label}</span>
-                            </Link>
-                          </li>
-                        )
-                      })}
-                    </ul>
+                        <span>{item.label}</span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
                   )}
                 </div>
               ))}

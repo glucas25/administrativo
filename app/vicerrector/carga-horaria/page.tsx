@@ -61,18 +61,18 @@ export default function CargaHorariaPage() {
 
   const checkAuth = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/auth/login')
+      return
+    }
 
-      const { data: userData } = await supabase
+    const { data: userData } = await supabase
         .rpc('obtener_perfil_usuario', { p_user_id: user.id })
 
       const rol = (userData && userData[0]?.rol) ? userData[0].rol.toLowerCase().trim() : '';
       if (rol !== 'vicerrector') {
-        router.push('/docente')
+      router.push('/docente')
         return
       }
 
@@ -119,30 +119,30 @@ export default function CargaHorariaPage() {
           // Cargar la carga horaria del docente para el periodo actual
           const { data: cargasData } = await supabase
             .from('carga_horaria')
-            .select(`
+                .select(`
               id,
               horas_semanales,
               curso_asignatura_id,
               curso_asignaturas!inner(
                 id,
                 horas_semanales,
-                cursos!inner(*),
-                asignaturas!inner(*)
+                  cursos!inner(*),
+                  asignaturas!inner(*)
               )
-            `)
+                `)
             .eq('docente_id', docente.id)
             .eq('periodo_id', periodoActivoData.id)
             .eq('activo', true)
 
           const cargas = (cargasData || []).map((carga: any) => ({
-            id: carga.id,
+                id: carga.id,
             horas_semanales: carga.horas_semanales,
-            curso_asignatura: {
+                curso_asignatura: {
               id: carga.curso_asignaturas.id,
               curso: carga.curso_asignaturas.cursos,
               asignatura: carga.curso_asignaturas.asignaturas,
               horas_semanales: carga.curso_asignaturas.horas_semanales
-            }
+              }
           }))
 
           const total_horas = cargas.reduce((sum, c) => sum + c.horas_semanales, 0)

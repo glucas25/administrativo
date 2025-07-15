@@ -12,9 +12,26 @@ interface TipoDocumento {
   descripcion: string
   requiere_revision: boolean
   requiere_asignatura: boolean
+  tipos_archivo_permitidos?: string[]
+  descripcion_tipos_archivo?: string
   activo: boolean
   fecha_creacion: string
 }
+
+// Tipos de archivo disponibles
+const TIPOS_ARCHIVO_DISPONIBLES = [
+  { value: 'pdf', label: 'PDF', icon: '📄' },
+  { value: 'doc', label: 'Word (.doc)', icon: '📝' },
+  { value: 'docx', label: 'Word (.docx)', icon: '📝' },
+  { value: 'xls', label: 'Excel (.xls)', icon: '📊' },
+  { value: 'xlsx', label: 'Excel (.xlsx)', icon: '📊' },
+  { value: 'ppt', label: 'PowerPoint (.ppt)', icon: '📈' },
+  { value: 'pptx', label: 'PowerPoint (.pptx)', icon: '📈' },
+  { value: 'txt', label: 'Texto (.txt)', icon: '📄' },
+  { value: 'rtf', label: 'Rich Text (.rtf)', icon: '📄' },
+  { value: 'zip', label: 'Comprimido (.zip)', icon: '📦' },
+  { value: 'rar', label: 'Comprimido (.rar)', icon: '📦' }
+]
 
 export default function TiposDocumentoPage() {
   const [tipos, setTipos] = useState<TipoDocumento[]>([])
@@ -26,7 +43,9 @@ export default function TiposDocumentoPage() {
     nombre: '',
     descripcion: '',
     requiere_revision: true,
-    requiere_asignatura: true
+    requiere_asignatura: true,
+    tipos_archivo_permitidos: ['pdf', 'doc', 'docx'] as string[],
+    descripcion_tipos_archivo: 'PDF, Word'
   })
 
   const router = useRouter()
@@ -65,7 +84,9 @@ export default function TiposDocumentoPage() {
             nombre: formData.nombre,
             descripcion: formData.descripcion,
             requiere_revision: formData.requiere_revision,
-            requiere_asignatura: formData.requiere_asignatura
+            requiere_asignatura: formData.requiere_asignatura,
+            tipos_archivo_permitidos: formData.tipos_archivo_permitidos,
+            descripcion_tipos_archivo: formData.descripcion_tipos_archivo
           })
           .eq('id', editingTipo.id)
 
@@ -135,7 +156,9 @@ export default function TiposDocumentoPage() {
       nombre: '',
       descripcion: '',
       requiere_revision: true,
-      requiere_asignatura: true
+      requiere_asignatura: true,
+      tipos_archivo_permitidos: ['pdf', 'doc', 'docx'],
+      descripcion_tipos_archivo: 'PDF, Word'
     })
     setEditingTipo(null)
     setShowModal(false)
@@ -148,10 +171,40 @@ export default function TiposDocumentoPage() {
       nombre: tipo.nombre,
       descripcion: tipo.descripcion || '',
       requiere_revision: tipo.requiere_revision,
-      requiere_asignatura: tipo.requiere_asignatura
+      requiere_asignatura: tipo.requiere_asignatura,
+      tipos_archivo_permitidos: tipo.tipos_archivo_permitidos || ['pdf', 'doc', 'docx'],
+      descripcion_tipos_archivo: tipo.descripcion_tipos_archivo || 'PDF, Word'
     })
     setShowModal(true)
   }
+
+  function toggleTipoArchivo(tipoArchivo: string) {
+    const nuevosTipos = formData.tipos_archivo_permitidos.includes(tipoArchivo)
+      ? formData.tipos_archivo_permitidos.filter(t => t !== tipoArchivo)
+      : [...formData.tipos_archivo_permitidos, tipoArchivo]
+    
+    setFormData({
+      ...formData,
+      tipos_archivo_permitidos: nuevosTipos
+    })
+  }
+
+  function actualizarDescripcion() {
+    const tiposSeleccionados = formData.tipos_archivo_permitidos
+    const descripciones = tiposSeleccionados.map(tipo => {
+      const tipoInfo = TIPOS_ARCHIVO_DISPONIBLES.find(t => t.value === tipo)
+      return tipoInfo ? tipoInfo.label : tipo.toUpperCase()
+    })
+    
+    setFormData({
+      ...formData,
+      descripcion_tipos_archivo: descripciones.join(', ')
+    })
+  }
+
+  useEffect(() => {
+    actualizarDescripcion()
+  }, [formData.tipos_archivo_permitidos])
 
   if (loading) {
     return <div className="animate-pulse">Cargando tipos de documento...</div>
@@ -190,7 +243,7 @@ export default function TiposDocumentoPage() {
       </div>
 
       {/* Lista de tipos */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow rounded-lg">
         {tipos.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p className="text-lg mb-4">No hay tipos de documento creados</p>
@@ -208,6 +261,9 @@ export default function TiposDocumentoPage() {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Descripción
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipos de Archivo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Opciones
@@ -232,6 +288,25 @@ export default function TiposDocumentoPage() {
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {tipo.descripcion || '-'}
                   </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap gap-1">
+                      {tipo.tipos_archivo_permitidos?.map((tipoArchivo) => {
+                        const tipoInfo = TIPOS_ARCHIVO_DISPONIBLES.find(t => t.value === tipoArchivo)
+                        return (
+                          <span key={tipoArchivo} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                            {tipoInfo?.icon} {tipoInfo?.label || tipoArchivo}
+                          </span>
+                        )
+                      }) || (
+                        <span className="text-gray-400">Todos los tipos</span>
+                      )}
+                    </div>
+                    {tipo.descripcion_tipos_archivo && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        {tipo.descripcion_tipos_archivo}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex flex-col space-y-1">
                       <span className={`inline-flex px-2 py-1 text-xs rounded ${
@@ -246,7 +321,7 @@ export default function TiposDocumentoPage() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <button
                       onClick={() => toggleActivo(tipo)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
@@ -285,38 +360,40 @@ export default function TiposDocumentoPage() {
           <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-black opacity-30" onClick={resetForm}></div>
             
-            <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
               <h2 className="text-xl font-bold mb-4">
                 {editingTipo ? 'Editar Tipo de Documento' : 'Nuevo Tipo de Documento'}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Código *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.codigo}
-                    onChange={(e) => setFormData({...formData, codigo: e.target.value.toUpperCase()})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-gray-900"
-                    placeholder="Ej: PLAN_DIAG"
-                    required
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Código *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.codigo}
+                      onChange={(e) => setFormData({...formData, codigo: e.target.value.toUpperCase()})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-gray-900"
+                      placeholder="Ej: PLAN_DIAG"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Ej: Planificación de Diagnóstico"
-                    required
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                      placeholder="Ej: Planificación de Diagnóstico"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -330,6 +407,30 @@ export default function TiposDocumentoPage() {
                     rows={3}
                     placeholder="Descripción del tipo de documento..."
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipos de Archivo Permitidos *
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {TIPOS_ARCHIVO_DISPONIBLES.map((tipo) => (
+                      <label key={tipo.value} className="flex items-center p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.tipos_archivo_permitidos.includes(tipo.value)}
+                          onChange={() => toggleTipoArchivo(tipo.value)}
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="ml-2 text-sm">
+                          {tipo.icon} {tipo.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-sm text-gray-600">
+                    <strong>Descripción para docentes:</strong> {formData.descripcion_tipos_archivo}
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -362,15 +463,15 @@ export default function TiposDocumentoPage() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
                   >
-                    {editingTipo ? 'Guardar Cambios' : 'Crear Tipo'}
+                    {editingTipo ? 'Actualizar' : 'Crear'}
                   </button>
                 </div>
               </form>
