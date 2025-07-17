@@ -20,11 +20,12 @@ interface CargaHorariaCompleta {
   }
 }
 
-interface EntregaPendiente {
+interface EntregaPendiente extends EntregaProgramada {
   tipo_documento: {
     nombre: string
     codigo: string
   }
+  etapa?: Etapa
   dias_restantes: number
   vencido: boolean
 }
@@ -770,8 +771,8 @@ const [stats, setStats] = useState({
                     entregasPendientes.slice(0, 5).map((entrega, idx) => {
                       // Nombre detallado: tipo documento + título/desc si aplica
                       let detalle = entrega.tipo_documento?.nombre || 'Documento';
-                      if ((entrega as any).titulo) detalle += ` - ${(entrega as any).titulo}`;
-                      else if ((entrega as any).descripcion) detalle += ` - ${(entrega as any).descripcion}`;
+                      if (entrega.titulo) detalle += ` - ${entrega.titulo}`;
+                      else if (entrega.descripcion) detalle += ` - ${entrega.descripcion}`;
                       return (
                         <li key={idx} className="flex items-center gap-2 text-sm">
                           <span className={`inline-block w-2 h-2 rounded-full ${entrega.vencido ? 'bg-red-500' : entrega.dias_restantes <= 2 ? 'bg-yellow-400' : 'bg-green-500'}`}></span>
@@ -794,8 +795,8 @@ const [stats, setStats] = useState({
                   ) : (
                     entregasPendientes.filter(e => e.vencido || e.dias_restantes <= 2).map((entrega, idx) => {
                       let detalle = entrega.tipo_documento?.nombre || 'Documento';
-                      if ((entrega as any).titulo) detalle += ` - ${(entrega as any).titulo}`;
-                      else if ((entrega as any).descripcion) detalle += ` - ${(entrega as any).descripcion}`;
+                      if (entrega.titulo) detalle += ` - ${entrega.titulo}`;
+                      else if (entrega.descripcion) detalle += ` - ${entrega.descripcion}`;
                       return (
                         <li key={idx} className="flex items-center gap-2 text-sm">
                           <span className={`inline-block w-2 h-2 rounded-full ${entrega.vencido ? 'bg-red-500' : 'bg-yellow-400'}`}></span>
