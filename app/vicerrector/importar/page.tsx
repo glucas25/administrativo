@@ -4,10 +4,20 @@ import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
+interface ManualUser {
+  correo: string
+  password: string
+  apellidos: string
+  nombres: string
+  area: string
+  titulo: string
+  cedula?: string
+}
+
 export default function ImportarUsuariosPage() {
   const [csvData, setCsvData] = useState<string>('');
-  const [manualUsers, setManualUsers] = useState([
-    { correo: '', password: '', apellidos: '', nombres: '', area: '', titulo: '' }
+  const [manualUsers, setManualUsers] = useState<ManualUser[]>([
+    { correo: '', password: '', apellidos: '', nombres: '', area: '', titulo: '', cedula: '' }
   ]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -45,12 +55,17 @@ export default function ImportarUsuariosPage() {
 
   // Handler para agregar usuario manual
   const addManualUser = () => {
-    setManualUsers([...manualUsers, { correo: '', password: '', apellidos: '', nombres: '', area: '', titulo: '' }]);
+    setManualUsers([
+      ...manualUsers,
+      { correo: '', password: '', apellidos: '', nombres: '', area: '', titulo: '', cedula: '' }
+    ]);
   };
 
   // Handler para cambiar datos manuales
-  const handleManualChange = (idx: number, field: string, value: string) => {
-    const updated = manualUsers.map((u, i) => i === idx ? { ...u, [field]: value } : u);
+  const handleManualChange = (idx: number, field: keyof ManualUser, value: string) => {
+    const updated = manualUsers.map((u, i) =>
+      i === idx ? { ...u, [field]: value } : u
+    );
     setManualUsers(updated);
   };
 
@@ -64,7 +79,7 @@ export default function ImportarUsuariosPage() {
         await supabase.rpc('crear_usuario_completo', {
           p_email: user.correo,
           p_password: user.password,
-          p_cedula: (user as any).cedula || null,
+          p_cedula: user.cedula || null,
           p_apellidos: user.apellidos,
           p_nombres: user.nombres,
           p_area: user.area || null,

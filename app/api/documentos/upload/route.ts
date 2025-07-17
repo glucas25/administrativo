@@ -281,7 +281,10 @@ export async function POST(request: NextRequest) {
         periodo_id: periodoId ? parseInt(periodoId) : null,
         asignatura_id: asignaturaId ? parseInt(asignaturaId) : null,
         etapa_id: etapaId ? parseInt(etapaId) : null,
-        curso_asignatura_id: curso_asignatura_id !== undefined && curso_asignatura_id !== null ? parseInt(curso_asignatura_id as any) : null,
+        curso_asignatura_id:
+          curso_asignatura_id !== undefined && curso_asignatura_id !== null
+            ? parseInt(String(curso_asignatura_id))
+            : null,
         nombre_archivo: uniqueFileName,
         nombre_original: file.name,
         tamaño_bytes: buffer.length,
