@@ -136,6 +136,8 @@ export interface Documento {
   revisado_por?: string;
   version: number;
   observaciones: string | null;
+  observaciones_internas?: string | null;
+  documento_padre_id?: string | null;
   metadata: any;
   entrega?: string | null;
   // Relaciones opcionales
