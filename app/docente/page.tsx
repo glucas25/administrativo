@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase/client'
 import { Usuario, Documento, EntregaProgramada, CargaHoraria, Asignatura, Curso, TipoDocumento, Etapa } from '@/types/database'
 import toast from 'react-hot-toast'
 import { useRef } from 'react'
-// Eliminar: import { useSession } from 'next-auth/react'
 
 interface CargaHorariaCompleta {
   id: number
@@ -40,7 +39,6 @@ interface EntregaExpandida extends EntregaProgramada {
 
 export default function DocenteDashboard() {
   const router = useRouter()
-  // Eliminar: const { data: session, status } = useSession()
   const [user, setUser] = useState<Usuario | null>(null)
   const [loading, setLoading] = useState(true)
   const [cargaHoraria, setCargaHoraria] = useState<CargaHorariaCompleta[]>([])
@@ -538,14 +536,7 @@ const [stats, setStats] = useState({
     return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
   }
 
-  // Si no hay entregas ni carga horaria, mostrar mensaje claro SOLO en la sección de entregas, no ocultar el dashboard
-  // Eliminar este bloque:
-  // if (entregas.length === 0) {
-  //   return <div className="min-h-screen flex items-center justify-center text-gray-500">No tienes entregas programadas para este período.</div>;
-  // }
-  // if (cargaHoraria.length === 0) {
-  //   return <div className="min-h-screen flex items-center justify-center text-gray-500">No tienes carga horaria asignada para este período. Contacta al administrador.</div>;
-  // }
+  // Si no hay entregas ni carga horaria, se muestra un mensaje en la sección de entregas, pero no se oculta el dashboard
 
   // Función para agrupar documentos por etapa
   const agruparDocumentosPorEtapa = (documentos: any[], entregas: any[]) => {
