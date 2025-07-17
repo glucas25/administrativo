@@ -36,11 +36,70 @@ export default function VicerrectorDashboard() {
   const [documentosEstado, setDocumentosEstado] = useState({ ENVIADO: 0, APROBADO: 0, OBSERVADO: 0 });
   const [ultimosDocentes, setUltimosDocentes] = useState<any[]>([]);
   const [ultimasEntregas, setUltimasEntregas] = useState<any[]>([]);
+  // Calcular ranking de docentes más cumplidos (por documentos aprobados)
+  const [rankingDocentes, setRankingDocentes] = useState<any[]>([]);
+  // Estado para métricas por tipo de documento
+  const [tiposDocumentoMetrica, setTiposDocumentoMetrica] = useState<any[]>([]);
 
   useEffect(() => {
     checkUser();
     loadStats();
     loadGraficos();
+    // Ranking de docentes más cumplidos
+    const fetchRankingDocentes = async () => {
+      // Traer todos los documentos aprobados con relación a usuarios_completos
+      const { data, error } = await supabase
+        .from('documentos')
+        .select('docente_id, usuarios_completos:docente_id(nombre_completo, correo)')
+        .eq('estado', 'APROBADO');
+      if (!error && data) {
+        const ranking: Record<string, { nombre: string, cantidad: number }> = {};
+        data.forEach((d: any) => {
+          const nombre = d.usuarios_completos?.nombre_completo || d.docente_id;
+          if (!ranking[nombre]) ranking[nombre] = { nombre, cantidad: 0 };
+          ranking[nombre].cantidad++;
+        });
+        const top = Object.values(ranking).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+        setRankingDocentes(top);
+      }
+    };
+    fetchRankingDocentes();
+    // Métricas por tipo de documento
+    const fetchTiposDocumentoMetrica = async () => {
+      const { data: tipos, error: errorTipos } = await supabase
+        .from('tipos_documento')
+        .select('id, nombre')
+        .eq('activo', true);
+      if (!tipos || errorTipos) return setTiposDocumentoMetrica([]);
+      const { data: docs, error: errorDocs } = await supabase
+        .from('documentos')
+        .select('id, tipo_documento_id, estado');
+      if (!docs || errorDocs) return setTiposDocumentoMetrica([]);
+      const metricas = tipos.map((tipo: any) => {
+        const docsTipo = docs.filter((d: any) => d.tipo_documento_id === tipo.id);
+        const entregados = docsTipo.length;
+        const aprobados = docsTipo.filter((d: any) => d.estado === 'APROBADO').length;
+        return {
+          nombre: tipo.nombre,
+          entregados,
+          aprobados
+        };
+      });
+      setTiposDocumentoMetrica(metricas);
+    };
+    fetchTiposDocumentoMetrica();
+    // Últimas entregas programadas con tipo de documento
+    const fetchUltimasEntregas = async () => {
+      const { data: entregasData, error } = await supabase
+        .from('entregas_programadas')
+        .select('id, titulo, fecha_limite, tipo_documento:tipo_documento_id(nombre)')
+        .order('fecha_limite', { ascending: false })
+        .limit(5);
+      if (!error && entregasData) {
+        setUltimasEntregas(entregasData);
+      }
+    };
+    fetchUltimasEntregas();
   }, []);
 
   const checkUser = async () => {
@@ -150,9 +209,6 @@ export default function VicerrectorDashboard() {
     setDocumentosEstado(estadoCount);
     // Últimos docentes
     setUltimosDocentes((docentesData || []).slice(-5).reverse());
-    // Últimas entregas
-    const { data: entregasData } = await supabase.from('entregas_programadas').select('*').order('fecha_entrega', { ascending: false }).limit(5);
-    setUltimasEntregas(entregasData || []);
   };
 
   const handleLogout = async () => {
@@ -189,25 +245,9 @@ export default function VicerrectorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-purple-700 text-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <h1 className="text-2xl font-bold">
-              Panel de Vicerrectorado
-            </h1>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-purple-200 hover:text-white"
-            >
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h2 className="text-2xl md:text-3xl font-bold text-blue-900 mb-6">Panel del Vicerrector</h2>
         {/* Welcome Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -218,74 +258,151 @@ export default function VicerrectorDashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-gray-600">Docentes</p>
-            <p className="text-2xl font-semibold text-gray-900">{stats.totalDocentes}</p>
+        {/* Stats Grid Mejorado */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-10">
+          {/* Docentes */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-100">
+            <span className="text-4xl mb-2">👨‍🏫</span>
+            <span className="text-3xl font-extrabold text-blue-800 mb-1">{stats.totalDocentes}</span>
+            <span className="text-base font-semibold text-blue-700">Docentes</span>
           </div>
-
-          <div className="bg-orange-50 rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-orange-800">Por Revisar</p>
-            <p className="text-2xl font-semibold text-orange-900">{stats.documentosPorRevisar}</p>
+          {/* Por Revisar */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 to-yellow-100 rounded-2xl shadow-lg p-6 border border-orange-100">
+            <span className="text-4xl mb-2">📥</span>
+            <span className="text-3xl font-extrabold text-orange-700 mb-1">{stats.documentosPorRevisar}</span>
+            <span className="text-base font-semibold text-orange-700">Por Revisar</span>
           </div>
-
-          <div className="bg-green-50 rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-green-800">Aprobados</p>
-            <p className="text-2xl font-semibold text-green-900">{stats.documentosAprobados}</p>
+          {/* Aprobados */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-green-100 rounded-2xl shadow-lg p-6 border border-green-100">
+            <span className="text-4xl mb-2">✅</span>
+            <span className="text-3xl font-extrabold text-green-700 mb-1">{stats.documentosAprobados}</span>
+            <span className="text-base font-semibold text-green-700">Aprobados</span>
           </div>
-
-          <div className="bg-blue-50 rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-blue-800">Tipos Doc.</p>
-            <p className="text-2xl font-semibold text-blue-900">{stats.tiposDocumento}</p>
+          {/* Tipos Documento */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-100 rounded-2xl shadow-lg p-6 border border-cyan-100">
+            <span className="text-4xl mb-2">📄</span>
+            <span className="text-3xl font-extrabold text-cyan-700 mb-1">{stats.tiposDocumento}</span>
+            <span className="text-base font-semibold text-cyan-700">Tipos Doc.</span>
           </div>
-
-          <div className="bg-purple-50 rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-purple-800">Asignaturas</p>
-            <p className="text-2xl font-semibold text-purple-900">{stats.asignaturas}</p>
+          {/* Asignaturas */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 border border-blue-100">
+            <span className="text-4xl mb-2">📚</span>
+            <span className="text-3xl font-extrabold text-blue-700 mb-1">{stats.asignaturas}</span>
+            <span className="text-base font-semibold text-blue-700">Asignaturas</span>
           </div>
-
-          <div className="bg-indigo-50 rounded-lg shadow p-4">
-            <p className="text-sm font-medium text-indigo-800">Cursos</p>
-            <p className="text-2xl font-semibold text-indigo-900">{stats.cursos}</p>
-          </div>
-        </div>
-
-        {/* Gráficos y Novedades */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Distribución de documentos por estado</h3>
-            <Pie data={pieData} />
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Carga horaria total por docente</h3>
-            <Bar data={barData} options={{ plugins: { legend: { display: false } } }} />
+          {/* Cursos */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-2xl shadow-lg p-6 border border-indigo-100">
+            <span className="text-4xl mb-2">🏫</span>
+            <span className="text-3xl font-extrabold text-indigo-700 mb-1">{stats.cursos}</span>
+            <span className="text-base font-semibold text-indigo-700">Cursos</span>
           </div>
         </div>
 
-        {/* Sección de novedades */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Últimos docentes agregados</h3>
-            <ul className="divide-y">
-              {ultimosDocentes.map(d => (
-                <li key={d.id} className="py-2">
-                  <span className="font-medium">{d.nombre_completo || d.correo}</span>
-                  <span className="ml-2 text-gray-500 text-xs">{d.correo}</span>
-                </li>
-              ))}
-            </ul>
+        {/* Tablas de métricas y detalles */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* Documentos por estado */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
+            <h3 className="text-lg font-bold text-blue-800 mb-4">Documentos por Estado</h3>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="px-4 py-2 text-left rounded-tl-xl">Estado</th>
+                  <th className="px-4 py-2 text-center">Cantidad</th>
+                  <th className="px-4 py-2 text-center rounded-tr-xl">Porcentaje</th>
+                </tr>
+              </thead>
+              <tbody>
+                {['APROBADO', 'ENVIADO', 'OBSERVADO'].map(estado => {
+                  const total = documentosEstado.APROBADO + documentosEstado.ENVIADO + documentosEstado.OBSERVADO;
+                  const cantidad = documentosEstado[estado as keyof typeof documentosEstado] || 0;
+                  const porcentaje = total ? ((cantidad / total) * 100).toFixed(1) : '0.0';
+                  const color = estado === 'APROBADO' ? 'bg-green-100 text-green-700' : estado === 'ENVIADO' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
+                  return (
+                    <tr key={estado} className="border-b last:border-b-0">
+                      <td className="px-4 py-2 font-semibold">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${color}`}>{estado}</span>
+                      </td>
+                      <td className="px-4 py-2 text-center">{cantidad}</td>
+                      <td className="px-4 py-2 text-center">{porcentaje}%</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-blue-50 font-bold">
+                  <td className="px-4 py-2 rounded-bl-xl">Total</td>
+                  <td className="px-4 py-2 text-center">{documentosEstado.APROBADO + documentosEstado.ENVIADO + documentosEstado.OBSERVADO}</td>
+                  <td className="px-4 py-2 text-center rounded-br-xl">100%</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">Últimas entregas programadas</h3>
-            <ul className="divide-y">
-              {ultimasEntregas.map(e => (
-                <li key={e.id} className="py-2">
-                  <span className="font-medium">{e.nombre || 'Entrega'}</span>
-                  <span className="ml-2 text-gray-500 text-xs">{e.fecha_entrega}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Tipos de documentos */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-100">
+            <h3 className="text-lg font-bold text-blue-800 mb-4">Tipos de Documentos</h3>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="px-4 py-2 text-left rounded-tl-xl">Tipo</th>
+                  <th className="px-4 py-2 text-center">Entregados</th>
+                  <th className="px-4 py-2 text-center rounded-tr-xl">Aprobados</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tiposDocumentoMetrica.length === 0 && <tr><td colSpan={3} className="text-center text-gray-400 py-4">Sin datos</td></tr>}
+                {tiposDocumentoMetrica.map(tipo => (
+                  <tr key={tipo.nombre} className="border-b last:border-b-0">
+                    <td className="px-4 py-2 font-semibold">{tipo.nombre}</td>
+                    <td className="px-4 py-2 text-center">{tipo.entregados}</td>
+                    <td className="px-4 py-2 text-center">{tipo.aprobados}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* Ranking de docentes más cumplidos */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
+            <h3 className="text-lg font-bold text-green-800 mb-4">Docentes más cumplidos</h3>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-green-50">
+                  <th className="px-4 py-2 text-left rounded-tl-xl">Docente</th>
+                  <th className="px-4 py-2 text-center rounded-tr-xl">Aprobados</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankingDocentes.length === 0 && <tr><td colSpan={2} className="text-center text-gray-400 py-4">Sin datos</td></tr>}
+                {rankingDocentes.map((doc, idx) => (
+                  <tr key={doc.nombre} className="border-b last:border-b-0">
+                    <td className="px-4 py-2 font-semibold flex items-center"><span className="mr-2 text-lg">{idx + 1}.</span> {doc.nombre}</td>
+                    <td className="px-4 py-2 text-center"><span className="bg-green-100 text-green-700 rounded-full px-3 py-1 text-xs font-bold">{doc.cantidad}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Últimas entregas programadas */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-indigo-100">
+            <h3 className="text-lg font-bold text-indigo-800 mb-4">Últimas entregas programadas</h3>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-indigo-50">
+                  <th className="px-4 py-2 text-left rounded-tl-xl">Título</th>
+                  <th className="px-4 py-2 text-center">Fecha Límite</th>
+                  <th className="px-4 py-2 text-center rounded-tr-xl">Tipo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ultimasEntregas.length === 0 && <tr><td colSpan={3} className="text-center text-gray-400 py-4">Sin datos</td></tr>}
+                {ultimasEntregas.map(e => (
+                  <tr key={e.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-2 font-semibold">{e.titulo || 'Entrega'}</td>
+                    <td className="px-4 py-2 text-center">{e.fecha_limite ? new Date(e.fecha_limite).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-2 text-center"><span className="bg-indigo-100 text-indigo-700 rounded-full px-3 py-1 text-xs font-bold">{e.tipo_documento?.nombre || '-'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>

@@ -639,20 +639,34 @@ const [stats, setStats] = useState({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-700 shadow">
+      <header className="bg-[#0057B7] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-1 md:mb-0">Panel del Docente</h1>
-            {user && (
-              <p className="text-lg text-blue-100 font-medium">{user.nombre_completo || `${user.apellidos ?? ''} ${user.nombres ?? ''}`.trim()}</p>
-            )}
+          <div className="flex items-center gap-6 mb-4 md:mb-0">
+            <img
+              src="/logo-fondo-azul2.png"
+              alt="Logo Unidad Educativa Fiscal Juan León Mera"
+              className="h-20 w-20 rounded-full object-cover"
+              aria-label="Logo Institución"
+            />
+            <div className="flex flex-col">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight drop-shadow-md tracking-tight">
+                Sistema de Gestión Documental Docente
+              </h1>
+              <p className="text-base md:text-lg text-blue-100 font-semibold mt-1 tracking-wide drop-shadow-sm">
+                Unidad Educativa Fiscal Juan León Mera
+              </p>
+            </div>
           </div>
           <div className="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+            <span className="text-white font-medium text-base md:text-lg">
+              {user?.nombre_completo || `${user?.apellidos ?? ''} ${user?.nombres ?? ''}`.trim()}
+            </span>
             <a
               href="#"
               onClick={e => { e.preventDefault(); handleLogout(); }}
               className="ml-0 md:ml-6 text-white hover:underline text-base font-semibold whitespace-nowrap"
               style={{ minWidth: '120px', textAlign: 'right' }}
+              aria-label="Cerrar sesión"
             >
               Cerrar sesión
             </a>
@@ -664,61 +678,61 @@ const [stats, setStats] = useState({
       <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop Tabs */}
-          <div className="hidden md:flex gap-6 pt-4 pb-2">
-            <button onClick={() => setTabActivo('inicio')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${tabActivo === 'inicio' ? 'bg-indigo-100 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+          <div className="hidden md:flex gap-2 pt-4 pb-2 bg-white/70 rounded-xl shadow-sm px-2">
+            <button onClick={() => setTabActivo('inicio')} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-all duration-200 border-2 ${tabActivo === 'inicio' ? 'bg-[#0057B7] text-white border-[#0057B7] shadow-md scale-105' : 'bg-white text-gray-700 border-transparent hover:bg-blue-50 hover:border-blue-200'}`}> 
               <span className="text-xl">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" /></svg>
               </span>
               <span>Inicio</span>
             </button>
-            <button onClick={() => setTabActivo('rendimiento')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${tabActivo === 'rendimiento' ? 'bg-indigo-100 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
-              <span className="text-xl">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-              </span>
-              <span>Rendimiento</span>
-            </button>
-            <button onClick={() => setTabActivo('documentos')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${tabActivo === 'documentos' ? 'bg-indigo-100 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+            <button onClick={() => setTabActivo('documentos')} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-all duration-200 border-2 ${tabActivo === 'documentos' ? 'bg-[#0057B7] text-white border-[#0057B7] shadow-md scale-105' : 'bg-white text-gray-700 border-transparent hover:bg-blue-50 hover:border-blue-200'}`}> 
               <span className="text-xl">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </span>
               <span>Documentos</span>
             </button>
-            <button onClick={() => setTabActivo('carga')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${tabActivo === 'carga' ? 'bg-indigo-100 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+            <button onClick={() => setTabActivo('rendimiento')} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-all duration-200 border-2 ${tabActivo === 'rendimiento' ? 'bg-[#0057B7] text-white border-[#0057B7] shadow-md scale-105' : 'bg-white text-gray-700 border-transparent hover:bg-blue-50 hover:border-blue-200'}`}> 
+              <span className="text-xl">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              </span>
+              <span>Rendimiento</span>
+            </button>
+            <button onClick={() => setTabActivo('carga')} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-all duration-200 border-2 ${tabActivo === 'carga' ? 'bg-[#0057B7] text-white border-[#0057B7] shadow-md scale-105' : 'bg-white text-gray-700 border-transparent hover:bg-blue-50 hover:border-blue-200'}`}> 
               <span className="text-xl">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 17l4 4 4-4m-4-5v9" /></svg>
               </span>
               <span>Carga Horaria</span>
             </button>
-            <button onClick={() => setTabActivo('soporte')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${tabActivo === 'soporte' ? 'bg-indigo-100 text-indigo-700 shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+            <button onClick={() => setTabActivo('soporte')} className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-all duration-200 border-2 ${tabActivo === 'soporte' ? 'bg-[#0057B7] text-white border-[#0057B7] shadow-md scale-105' : 'bg-white text-gray-700 border-transparent hover:bg-blue-50 hover:border-blue-200'}`}> 
               <span className="text-xl">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 17l-4 4m0 0l-4-4m4 4V3" /></svg>
               </span>
               <span>Soporte</span>
             </button>
           </div>
-        </div>
         {/* Mobile Tab Bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 border-t border-gray-200 flex justify-around py-2 shadow-lg">
-          <button onClick={() => setTabActivo('inicio')} className={`flex flex-col items-center text-xs ${tabActivo === 'inicio' ? 'text-indigo-600' : 'text-gray-500'}`}>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-gray-200 flex justify-around py-2 shadow-xl rounded-t-xl">
+          <button onClick={() => setTabActivo('inicio')} className={`flex flex-col items-center text-xs transition-all duration-200 ${tabActivo === 'inicio' ? 'text-[#0057B7] font-bold scale-110' : 'text-gray-500 hover:text-[#0057B7]'}`}> 
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6" /></svg>
             <span>Inicio</span>
           </button>
-          <button onClick={() => setTabActivo('rendimiento')} className={`flex flex-col items-center text-xs ${tabActivo === 'rendimiento' ? 'text-indigo-600' : 'text-gray-500'}`}>
-            <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-            <span>Rend.</span>
-          </button>
-          <button onClick={() => setTabActivo('documentos')} className={`flex flex-col items-center text-xs ${tabActivo === 'documentos' ? 'text-indigo-600' : 'text-gray-500'}`}>
+          <button onClick={() => setTabActivo('documentos')} className={`flex flex-col items-center text-xs transition-all duration-200 ${tabActivo === 'documentos' ? 'text-[#0057B7] font-bold scale-110' : 'text-gray-500 hover:text-[#0057B7]'}`}> 
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span>Docs</span>
           </button>
-          <button onClick={() => setTabActivo('carga')} className={`flex flex-col items-center text-xs ${tabActivo === 'carga' ? 'text-indigo-600' : 'text-gray-500'}`}>
+          <button onClick={() => setTabActivo('rendimiento')} className={`flex flex-col items-center text-xs transition-all duration-200 ${tabActivo === 'rendimiento' ? 'text-[#0057B7] font-bold scale-110' : 'text-gray-500 hover:text-[#0057B7]'}`}> 
+            <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            <span>Rend.</span>
+          </button>
+          <button onClick={() => setTabActivo('carga')} className={`flex flex-col items-center text-xs transition-all duration-200 ${tabActivo === 'carga' ? 'text-[#0057B7] font-bold scale-110' : 'text-gray-500 hover:text-[#0057B7]'}`}> 
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 17l4 4 4-4m-4-5v9" /></svg>
             <span>Carga</span>
           </button>
-          <button onClick={() => setTabActivo('soporte')} className={`flex flex-col items-center text-xs ${tabActivo === 'soporte' ? 'text-indigo-600' : 'text-gray-500'}`}>
+          <button onClick={() => setTabActivo('soporte')} className={`flex flex-col items-center text-xs transition-all duration-200 ${tabActivo === 'soporte' ? 'text-[#0057B7] font-bold scale-110' : 'text-gray-500 hover:text-[#0057B7]'}`}> 
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 17l-4 4m0 0l-4-4m4 4V3" /></svg>
             <span>Soporte</span>
           </button>
+        </div>
         </div>
       </nav>
 

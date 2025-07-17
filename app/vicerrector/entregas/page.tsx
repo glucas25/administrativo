@@ -210,24 +210,32 @@ export default function EntregasProgramadasPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-purple-700 text-white shadow">
+      <header className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-8">
             <div>
-              <h1 className="text-2xl font-bold">Entregas Programadas</h1>
-              <button
-                onClick={() => router.push('/vicerrector')}
-                className="text-purple-200 hover:text-white text-sm mt-1"
-              >
-                ← Volver al dashboard
-              </button>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Entregas Programadas
+                </span>
+              </h1>
+              <div className="flex items-center space-x-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                <button
+                  onClick={() => router.push('/vicerrector')}
+                  className="text-blue-600 hover:text-blue-800 text-sm transition-colors font-medium flex items-center"
+                >
+                  <span className="mr-1">←</span>
+                  Volver al dashboard
+                </button>
+              </div>
             </div>
             <button
               onClick={() => {
                 resetForm()
                 setShowModal(true)
               }}
-              className="bg-white text-purple-700 px-4 py-2 rounded hover:bg-purple-50"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               ➕ Nueva Entrega
             </button>
@@ -309,7 +317,7 @@ export default function EntregasProgramadasPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleEdit(entrega)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      className="text-blue-600 hover:text-blue-900 mr-3"
                     >
                       Editar
                     </button>
@@ -349,7 +357,7 @@ export default function EntregasProgramadasPage() {
                   <select
                     value={formData.tipo_documento_id}
                     onChange={(e) => setFormData({ ...formData, tipo_documento_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
                     <option value="">Seleccione...</option>
@@ -361,30 +369,6 @@ export default function EntregasProgramadasPage() {
                   </select>
                 </div>
 
-                {/* {editingEntrega && (
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Período Académico *
-  </label>
-  <select
-    value={formData.periodo_id}
-    onChange={e => {
-      setFormData({ ...formData, periodo_id: e.target.value, etapa_id: '' })
-      cargarEtapasPorPeriodo(e.target.value)
-    }}
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-    required
-  >
-    <option value="">Seleccione...</option>
-    {periodos.map((periodo) => (
-      <option key={periodo.id} value={periodo.id}>
-        {periodo.nombre}
-      </option>
-    ))}
-  </select>
-</div>
-)} */}
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Etapa *
@@ -392,7 +376,7 @@ export default function EntregasProgramadasPage() {
                   <select
                     value={formData.etapa_id}
                     onChange={e => setFormData({ ...formData, etapa_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                     disabled={!etapas.length}
                   >
@@ -411,7 +395,7 @@ export default function EntregasProgramadasPage() {
                     type="text"
                     value={formData.titulo}
                     onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
                 </div>
@@ -421,7 +405,7 @@ export default function EntregasProgramadasPage() {
                   <textarea
                     value={formData.descripcion}
                     onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     rows={3}
                   />
                 </div>
@@ -433,7 +417,7 @@ export default function EntregasProgramadasPage() {
                       type="date"
                       value={formData.fecha_inicio}
                       onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
@@ -443,7 +427,7 @@ export default function EntregasProgramadasPage() {
                       type="date"
                       value={formData.fecha_limite}
                       onChange={(e) => setFormData({ ...formData, fecha_limite: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
@@ -454,7 +438,7 @@ export default function EntregasProgramadasPage() {
                     type="checkbox"
                     checked={formData.es_obligatorio}
                     onChange={(e) => setFormData({ ...formData, es_obligatorio: e.target.checked })}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700">Entrega obligatoria</span>
                 </div>
@@ -469,7 +453,7 @@ export default function EntregasProgramadasPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     {editingEntrega ? 'Guardar Cambios' : 'Crear Entrega'}
                   </button>

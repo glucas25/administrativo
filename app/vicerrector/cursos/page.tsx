@@ -247,22 +247,30 @@ export default function CursosPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-purple-700 text-white shadow">
+      <header className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-8">
             <div>
-              <h1 className="text-2xl font-bold">Gestión de Cursos</h1>
-              <button
-                onClick={() => router.push('/vicerrector')}
-                className="text-purple-200 hover:text-white text-sm mt-1"
-              >
-                ← Volver al dashboard
-              </button>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Gestión de Cursos
+                </span>
+              </h1>
+              <div className="flex items-center space-x-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                <button
+                  onClick={() => router.push('/vicerrector')}
+                  className="text-blue-600 hover:text-blue-800 text-sm transition-colors font-medium flex items-center"
+                >
+                  <span className="mr-1">←</span>
+                  Volver al dashboard
+                </button>
+              </div>
             </div>
             <div className="space-x-3">
               <button
                 onClick={() => setShowImportModal(true)}
-                className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-800"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-white"
               >
                 📥 Importar
               </button>
@@ -271,7 +279,7 @@ export default function CursosPage() {
                   resetForm()
                   setShowModal(true)
                 }}
-                className="bg-white text-purple-700 px-4 py-2 rounded hover:bg-purple-50"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 ➕ Nuevo Curso
               </button>

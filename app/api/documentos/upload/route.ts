@@ -72,20 +72,23 @@ export async function POST(request: NextRequest) {
       if (asignaturaId) {
         const { data: asignaturaData } = await supabaseAdmin
           .from('asignaturas')
-          .select('nombre')
+          .select('nombre, codigo')
           .eq('id', asignaturaId)
           .single()
         if (asignaturaData) {
           metadata.asignatura_nombre = asignaturaData.nombre
+          metadata.asignatura_codigo = asignaturaData.codigo
         }
       }
+      // Cambiar: obtener también el código de tipo de documento
       const { data: tipoDocumentoData } = await supabaseAdmin
         .from('tipos_documento')
-        .select('nombre')
+        .select('nombre, codigo')
         .eq('id', tipoDocumentoId)
         .single()
       if (tipoDocumentoData) {
         metadata.tipo_documento_nombre = tipoDocumentoData.nombre
+        metadata.tipo_documento_codigo = tipoDocumentoData.codigo
       }
     } catch (error) {
       console.error('Error obteniendo metadatos:', error)
@@ -142,6 +145,10 @@ export async function POST(request: NextRequest) {
     metadata.paralelo = paralelo;
     metadata.subnivel = subnivel;
     metadata.asignatura_nombre = asignatura_nombre;
+    // También obtener el código de asignatura si está disponible
+    if (asignatura_nombre && metadata.asignatura_codigo) {
+      metadata.asignatura_codigo = metadata.asignatura_codigo;
+    }
     // Generar nombre único para el archivo SIEMPRE con timestamp
     let uniqueFileName = generateUniqueFileName(file.name, {
       ...metadata,
@@ -322,16 +329,16 @@ function sanitizeFileNamePart(part: string): string {
 function getCodigoTipoDocumento(nombre: string): string {
   // Puedes expandir este diccionario según los tipos existentes
   const codigos: Record<string, string> = {
-    'Diagnóstico': 'DIAG',
-    'Planificación': 'PLAN',
+    'Planificaciones': 'PLAN',
     'Plan': 'PLAN',
     'Informe': 'INF',
     'Proyecto': 'PROY',
     'Acta': 'ACTA',
     'Guía': 'GUIA',
     'Examen': 'EXAM',
-    'Reporte': 'REP',
-    'Otro': 'OTRO',
+    'Reportes': 'REP',
+    'Listas': 'LIST',
+    'Evaluaciones': 'EVAL',
     // ... agregar más según necesidad
   }
   return codigos[nombre.trim()] || nombre.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)
@@ -340,10 +347,10 @@ function getCodigoTipoDocumento(nombre: string): string {
 function getCodigoEtapa(nombre: string): string {
   const codigos: Record<string, string> = {
     'Diagnóstico': 'DIAG',
-    'Planificación': 'PLAN',
-    'Ejecución': 'EJEC',
-    'Evaluación': 'EVAL',
-    'Seguimiento': 'SEG',
+    'Trimestre 1': 'TRIM1',
+    'Trimestre 2': 'TRIM2',
+    'Trimestre 3': 'TRIM3',
+    'Supletorio': 'SUPL',
     // ... agregar más según necesidad
   }
   return codigos[nombre.trim()] || nombre.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6)
@@ -352,8 +359,8 @@ function getCodigoEtapa(nombre: string): string {
 function getCodigoAsignatura(nombre: string): string {
   // Ejemplo: Matemáticas -> MAT, Lengua -> LEN
   const codigos: Record<string, string> = {
-    'Matemáticas': 'MAT',
-    'Lengua': 'LEN',
+    'Matemática': 'MAT',
+    'Lengua y Literatura': 'LEN',
     'Ciencias': 'CIE',
     'Historia': 'HIS',
     'Inglés': 'ING',
@@ -407,20 +414,20 @@ function generateUniqueFileName(
   metadata: any
 ): string {
   const extension = originalName.split('.').pop() || ''
-  // Códigos (sanitizados y en mayúsculas)
-  const tipoDoc = sanitizeFileNamePart(getCodigoTipoDocumento(metadata.tipo_documento_nombre || '')).toUpperCase()
+  // Usar el código directamente si está disponible
+  const tipoDoc = sanitizeFileNamePart((metadata.tipo_documento_codigo || '')).toUpperCase()
   const etapa = sanitizeFileNamePart(getCodigoEtapa(metadata.etapa_nombre || '')).toUpperCase()
-  // Quitar 'AñoLectivo' del periodo
-  let periodo = (metadata.periodo_nombre || '').replace(/AñoLectivo/gi, '').replace(/\s+/g, '').replace(/-/g, '_')
-  periodo = sanitizeFileNamePart(periodo).toUpperCase()
+  // Eliminar el periodo de la codificación
+  // const periodo = sanitizeFileNamePart(metadata.periodo_nombre || '').toUpperCase()
   const subnivel = sanitizeFileNamePart(getCodigoSubnivel(metadata.subnivel || '')).toUpperCase()
   const curso = sanitizeFileNamePart(getCodigoCurso(metadata.curso || '', metadata.paralelo || '')).toUpperCase()
-  const asignatura = sanitizeFileNamePart(getCodigoAsignatura(metadata.asignatura_nombre || '')).toUpperCase()
+  // Usar el código de asignatura si está disponible
+  const asignatura = sanitizeFileNamePart((metadata.asignatura_codigo || '')).toUpperCase()
   const apellido = sanitizeFileNamePart(getCodigoNombre(metadata.docente_apellidos || '')).toUpperCase()
   const nombre = sanitizeFileNamePart(getCodigoNombre(metadata.docente_nombres || '')).toUpperCase()
   const fecha = sanitizeFileNamePart(getFechaLegible()).toUpperCase()
-  // Unir partes
-  const parts = [tipoDoc, etapa, periodo, subnivel, curso, asignatura, apellido, nombre, fecha]
+  // Unir partes (sin periodo)
+  const parts = [tipoDoc, etapa, curso, asignatura, apellido, nombre, fecha]
   const baseName = parts.filter(Boolean).join('-')
   return `${baseName}.${extension}`
 }

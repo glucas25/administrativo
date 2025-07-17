@@ -38,20 +38,66 @@ export default function ReportesPage() {
   const cargarReportes = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('documentos')
-        .select(`
-          docente:perfiles_docentes (
-            apellidos,
-            nombres
-          ),
-          estado
-        `);
-      if (error) throw error;
+      // Intentar primero con la vista
+      let data: any[] = [];
+      let error: any = null;
+      
+      try {
+        const result = await supabase
+          .from('vista_documentos_completa')
+          .select('estado, docente_nombres, docente_apellidos');
+        
+        data = result.data || [];
+        error = result.error;
+      } catch (viewError) {
+        // Si falla la vista, hacer consulta directa
+        const documentosResult = await supabase
+          .from('documentos')
+          .select('estado, docente_id');
+        
+        if (documentosResult.error) {
+          throw documentosResult.error;
+        }
+        
+        const usuariosResult = await supabase
+          .from('usuarios_completos')
+          .select('id, nombre_completo, apellidos, nombres');
+        
+        if (usuariosResult.error) {
+          throw usuariosResult.error;
+        }
+        
+        // Crear mapa de usuarios
+        const usuariosMap = new Map();
+        (usuariosResult.data || []).forEach((usuario: any) => {
+          usuariosMap.set(usuario.id, usuario);
+        });
+        
+        // Transformar datos
+        data = (documentosResult.data || []).map((doc: any) => {
+          const usuario = usuariosMap.get(doc.docente_id);
+          return {
+            estado: doc.estado,
+            docente_apellidos: usuario?.apellidos || null,
+            docente_nombres: usuario?.nombres || null
+          };
+        });
+      }
+      
+      if (error) {
+        console.error('Error en la consulta:', error);
+        throw error;
+      }
+      
       // Agrupar por docente
       const agrupado: { [nombre: string]: ReporteDocente } = {};
       (data || []).forEach((doc: any) => {
-        const nombre = doc.docente ? `${doc.docente.apellidos ?? ''} ${doc.docente.nombres ?? ''}`.trim() : 'Sin nombre';
+        let nombre = 'Sin nombre';
+        
+        if (doc.docente_apellidos || doc.docente_nombres) {
+          nombre = `${doc.docente_apellidos || ''} ${doc.docente_nombres || ''}`.trim();
+        }
+        
         if (!agrupado[nombre]) {
           agrupado[nombre] = {
             docente: nombre,
@@ -67,8 +113,10 @@ export default function ReportesPage() {
         else if (doc.estado === 'ENVIADO' || doc.estado === 'EN_REVISION') agrupado[nombre].pendientes++;
         agrupado[nombre].entregados++;
       });
+      
       setReportes(Object.values(agrupado));
     } catch (err) {
+      console.error('Error cargando reportes:', err);
       setReportes([]);
     } finally {
       setLoading(false);
@@ -79,17 +127,25 @@ export default function ReportesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <header className="bg-purple-700 text-white shadow">
+      <header className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-8">
             <div>
-              <h1 className="text-2xl font-bold">Generar reportes</h1>
-              <button
-                onClick={() => router.push('/vicerrector')}
-                className="text-purple-200 hover:text-white text-sm mt-1"
-              >
-                ← Volver al dashboard
-              </button>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Generar reportes
+                </span>
+              </h1>
+              <div className="flex items-center space-x-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
+                <button
+                  onClick={() => router.push('/vicerrector')}
+                  className="text-blue-600 hover:text-blue-800 text-sm transition-colors font-medium flex items-center"
+                >
+                  <span className="mr-1">←</span>
+                  Volver al dashboard
+                </button>
+              </div>
             </div>
           </div>
         </div>
